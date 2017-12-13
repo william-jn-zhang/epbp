@@ -100,6 +100,7 @@ SCIP_DECL_BRANCHEXECLP(branchEdgeExeLp)
 		edge1 = set1[i];
 		cons1 = SCIPprobdataGETConstraint(scip, edge1);
 		vars = SCIPgetVarsSetppc(scip, cons1);
+
 	}
 
 	return SCIP_OKAY;
