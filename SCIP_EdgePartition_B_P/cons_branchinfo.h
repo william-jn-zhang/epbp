@@ -79,5 +79,23 @@ SCIP_RETCODE SCIPincludeConshdlrBranchInfo(
 	SCIP* scip
 	);
 
+/* get the current active branch-info constraint */
+extern
+SCIP_CONS* SCIPconsGetActiveBranchInfoCons(
+	SCIP* scip
+	);
 
+
+/* create a new branch-info constraint that be used to store the branching infomation */
+extern
+SCIP_RETCODE SCIPconsCreateConsBranchInfo(
+	SCIP*                   scip,          // scip data structure
+	SCIP_CONS**              cons,          // the created constraint
+	const char*             consname,      // name of constraint
+	SCIP_CONS*              fathercons,    // the father of the current created constraint
+	BRANCH_CONSTYPE         type,          // the type of the current branching
+	int                     edge1,         // the first edge corresponding to this branch step 
+	int                     edge2,         // the first edge corresponding to this branch step 
+	SCIP_NODE*              stickingnode   // the B&B-tree node at which the constraint will be sticking
+	);
 #endif

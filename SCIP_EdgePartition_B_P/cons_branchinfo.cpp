@@ -251,3 +251,75 @@ SCIP_RETCODE SCIPincludeConshdlrBranchInfo(
 
 	return SCIP_OKAY;
 }
+
+SCIP_CONS* SCIPconsGetActiveBranchInfoCons(
+	SCIP* scip
+	)
+{
+	SCIP_CONSHDLR* conshdlr;
+	SCIP_CONSHDLRDATA* conshdlrData;
+
+	assert(scip != NULL);
+	conshdlr = SCIPfindConshdlr(scip, CONSHDLR_NAME);
+	if(conshdlr == NULL)
+	{
+		return NULL;
+	}
+	conshdlrData = SCIPconshdlrGetData(conshdlr);
+	assert(conshdlrData != NULL);
+	assert(conshdlrData -> stack != NULL);
+	assert(conshdlrData -> ncons > 0);
+
+	return conshdlrData -> stack[conshdlrData -> ncons - 1];
+}
+
+SCIP_RETCODE SCIPconsCreateConsBranchInfo(
+	SCIP*                   scip,          // scip data structure
+	SCIP_CONS**              cons,          // the created constraint
+	const char*             consname,      // name of constraint
+	SCIP_CONS*              fathercons,    // the father of the current created constraint
+	BRANCH_CONSTYPE         type,          // the type of the current branching
+	int                     edge1,         // the first edge corresponding to this branch step 
+	int                     edge2,         // the first edge corresponding to this branch step 
+	SCIP_NODE*              stickingnode   // the B&B-tree node at which the constraint will be sticking
+	)
+{
+	SCIP_CONSHDLR* conshdlr;
+	SCIP_CONSDATA* consdata;
+	int tmp;
+
+	assert(scip != NULL);
+	assert(fathercons != NULL);
+	assert(type == BRANCH_CONSTYPE_DIFFER || type == BRANCH_CONSTYPE_SAME);
+	assert(stickingnode != NULL);
+
+	conshdlr = SCIPfindConshdlr(scip, CONSHDLR_NAME);
+	if(conshdlr == NULL)
+	{
+		return SCIP_PLUGINNOTFOUND;
+	}
+
+	SCIP_CALL(SCIPallocBlockMemory(scip, &consdata));
+
+	if(edge1 > edge2)
+	{
+		tmp = edge1;
+		edge1 = edge2;
+		edge2 = tmp;
+	}
+	consdata -> edge1 = edge1;
+	consdata -> edge2 = edge2;
+	consdata -> type = type;
+	consdata -> fathercons = fathercons;
+	consdata -> stickingatnode = stickingnode;
+
+	consdata -> differ_branch = NULL;
+	consdata -> same_branch = NULL;
+	consdata -> ndiffer = 0; 
+	consdata -> nsame = 0;
+
+	SCIP_CALL( SCIPcreateCons(scip, cons, consname, conshdlr, consdata, FALSE, FALSE, FALSE, FALSE, TRUE,
+         TRUE, FALSE, TRUE, FALSE, TRUE) );
+
+	return SCIP_OKAY;
+}
