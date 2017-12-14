@@ -210,6 +210,7 @@ SCIP_RETCODE SCIPincludeEdgeBranchRule(
 	 BRANCHRULE_MAXBOUNDDIST, NULL) );
 
 	SCIP_CALL( SCIPsetBranchruleExecLp(scip, branchrule, branchEdgeExeLp) );
-
+	//SCIP_CALL( SCIPsetBranchruleCopy(scip, branchrule, branchEdgeCopy) );
+	//SCIP_CALL( SCIPsetBranchruleExecPs(scip, branchrule, branchEdgeExecps) );
 	return SCIP_OKAY;
 }
