@@ -119,6 +119,7 @@
     <ClCompile Include="heur.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="my_graph.cpp" />
+    <ClCompile Include="pricer_edgepartition.cpp" />
     <ClCompile Include="probdata_edgepartition.cpp" />
     <ClCompile Include="reader_epp.cpp" />
     <ClCompile Include="test.cpp" />
@@ -129,6 +130,7 @@
     <ClInclude Include="heur.h" />
     <ClInclude Include="my_def.h" />
     <ClInclude Include="my_graph.h" />
+    <ClInclude Include="pricer_edgepartition.h" />
     <ClInclude Include="probdata_edgepartition.h" />
     <ClInclude Include="reader_epp.h" />
   </ItemGroup>

@@ -39,6 +39,9 @@
     <ClCompile Include="branch_edge.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="pricer_edgepartition.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="my_graph.h">
@@ -60,6 +63,9 @@
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="cons_branchinfo.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="pricer_edgepartition.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>
