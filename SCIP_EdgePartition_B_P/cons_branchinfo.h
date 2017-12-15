@@ -62,6 +62,10 @@ struct SCIP_ConsData
 	                                  // [set in CONS_ACTIVE event]
 	int                ndiffer;       // number of differ branch info
 	                                  // [set in CONS_ACTIVE event]
+
+	int*               rep;           // union find set for the SAME branch info
+	                                  // [alloc and set in CONS_ACTIVE event]
+	int                nedges;        // number of edges, the size of the rep array
 };
 
 struct SCIP_ConshdlrData
@@ -97,5 +101,27 @@ SCIP_RETCODE SCIPconsCreateConsBranchInfo(
 	int                     edge1,         // the first edge corresponding to this branch step 
 	int                     edge2,         // the first edge corresponding to this branch step 
 	SCIP_NODE*              stickingnode   // the B&B-tree node at which the constraint will be sticking
+	);
+
+/* the union find set operations */
+extern
+int RepFind(
+	int*                    rep,           // the union find set array
+	int                     ele            // the element that need to find the representation
+	);
+
+extern
+void RepUnion(
+	int*                    rep,          // the union find set array
+	int                     ele1,
+	int                     ele2
+	);
+
+
+extern
+SCIP_Bool RepSame(
+	int*                    rep,
+	int                     ele1,
+	int                     ele2
 	);
 #endif

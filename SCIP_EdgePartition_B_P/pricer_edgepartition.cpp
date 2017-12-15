@@ -21,12 +21,62 @@ struct SCIP_PricerData
 	SCIP*                                scip;                   // scip data structure
 	int                                  maxvarsround;           // the maximum number of variable created in each round
 	int                                  oldmaxvarsround;        // 
+
+	SCIP_NODE*                           bbnode;                 // the current b&b tree node, used for limiting the number of pricing rounds
+	int                                  noderounds;             // number of remaining pricing round in the current node
+	int                                  maxroundroot; //user set// the maximum pricing round in the root node
+	int                                  maxroundnode; //user set// maximum number of pricing rounds in the B&B-nodes, -1 for infinity, attention: positive value may lead to a non-optimal solution
+	SCIP_Real                            lowerbound;             // lower bound computed by the pricer
+
+	int                                  nsetsfound;             // number of improving set found in the current round
+
+	SCIP_Bool                            usePriceHeur; //user set// using the heuristic to solve the price problem
 };
 
 static
 SCIP_DECL_PRICERREDCOST(pricerRedcostEdgePartition)
 {
+	SCIP_PRICERDATA* pricerdata;
 
+	assert(scip != NULL);
+	assert(pricer != NULL);
+
+	pricerdata = SCIPpricerGetData(pricer);
+	assert(pricerdata != NULL);
+
+	if( pricerdata -> bbnode == SCIPgetCurrentNode(scip))
+	{
+		if(pricerdata -> noderounds > 0)
+			pricerdata -> noderounds --;
+	}
+	else
+	{
+		if(pricerdata -> bbnode == NULL)
+		{
+			pricerdata -> noderounds = pricerdata -> maxroundroot;
+			pricerdata -> lowerbound = -SCIPinfinity(scip);
+		}
+		else
+		{
+			pricerdata -> noderounds = pricerdata -> maxroundnode;
+			pricerdata -> lowerbound = -SCIPinfinity(scip);
+		}
+		pricerdata -> bbnode = SCIPgetCurrentNode(scip);
+	}
+
+	if(pricerdata -> noderounds == 0)
+	{
+		/* maxrounds reached, pricing interrupted */
+		*result = SCIP_DIDNOTRUN;
+		*lowerbound = pricerdata -> lowerbound;
+
+		return SCIP_OKAY;
+	}
+
+	*result = SCIP_SUCCESS;
+
+
+	
 	return SCIP_OKAY;
 }
 

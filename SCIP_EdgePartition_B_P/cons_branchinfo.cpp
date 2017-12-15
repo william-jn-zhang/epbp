@@ -6,6 +6,60 @@
  */
 
 #include "cons_branchinfo.h"
+#include "probdata_edgepartition.h"
+
+int RepFind(
+	int*                    rep,           // the union find set array
+	int                     ele            // the element that need to find the representation
+	)
+{
+	if (ele == rep[ele]) return ele;
+	return rep[ele] = RepFind(rep, rep[ele]);
+}
+
+void RepUnion(
+	int*                    rep,          // the union find set array
+	int                     ele1,
+	int                     ele2
+	)
+{
+	int u = RepFind(rep, ele1), v = RepFind(rep, ele2);
+	if (u == v) return;
+	rep[u] = v;
+}
+
+SCIP_Bool RepSame(
+	int*                    rep,
+	int                     ele1,
+	int                     ele2
+	)
+{
+	return RepFind(rep, ele1) == RepFind(rep, ele2);
+}
+
+/*
+int father[100000];
+
+void init() {
+	for (int i = 1; i < 100000; i++)
+		father[i] = i;
+}
+
+int Find(int x) {
+	if (x == father[x]) return x;
+	return father[x] = Find(father[x]);
+}
+
+void unionSet(int x, int y) {
+	int u = Find(x), v = Find(y);
+	if (u == v) return;
+	father[u] = v;
+}
+
+bool Same(int x, int y) {
+	return Find(x) == Find(y);
+}
+*/
 
 static
 SCIP_DECL_CONSINITSOL(consInitSolBranchInfo)
@@ -15,12 +69,17 @@ SCIP_DECL_CONSINITSOL(consInitSolBranchInfo)
 	SCIP_CONS*         rootcons;
 	SCIP_CONSDATA*     rootconsdata;
 
+	SCIP_PROBDATA*     probdata;
+
 	assert(scip != NULL);
 	assert(conshdlr != NULL);
 	assert(strcmp(SCIPconshdlrGetName(conshdlr), CONSHDLR_NAME) == 0);
 
 	conshdlrData = SCIPconshdlrGetData(conshdlr);
 	assert(conshdlrData != NULL);
+
+	probdata = SCIPgetProbData(scip);
+	assert(probdata != NULL);
 
 	/* init stack */
 	SCIP_CALL( SCIPallocBlockMemoryArray(scip, &(conshdlrData -> stack), conshdlrData -> maxstacksize) );
@@ -38,6 +97,17 @@ SCIP_DECL_CONSINITSOL(consInitSolBranchInfo)
 	rootconsdata -> type = BRANCH_CONSTYPE_ROOT;
 	rootconsdata -> fathercons = NULL;
 	rootconsdata -> stickingatnode = NULL;
+
+	// initialize rep
+	rootconsdata -> nedges = probdata -> nedges;
+	
+	SCIP_CALL( SCIPallocBlockMemoryArray(scip, &(rootconsdata -> rep), rootconsdata -> nedges) );
+
+	for(int i = 0; i < rootconsdata -> nedges; ++i)
+	{
+		rootconsdata -> rep[i] = i;
+	}
+
 	SCIP_CALL( SCIPcreateCons(scip, &rootcons, "root", conshdlr, rootconsdata, FALSE, FALSE, FALSE, FALSE, FALSE,
 			     TRUE, FALSE, TRUE, FALSE, FALSE));
 
@@ -131,6 +201,21 @@ SCIP_DECL_CONSACTIVE(consActiveBranchInfo)
 			consdata -> same_branch[i][0] = fatherConsdata -> same_branch[i][0];
 			consdata -> same_branch[i][1] = fatherConsdata -> same_branch[i][1];
 		}
+
+		//copy union find set infomation
+		consdata -> nedges = fatherConsdata -> nedges;
+		SCIP_CALL( SCIPallocBlockMemoryArray(scip, &(consdata -> rep), consdata -> nedges) );
+		for(int i = 0; i < consdata -> nedges; ++i)
+		{
+			consdata -> rep[i] = fatherConsdata -> rep[i];
+		}
+
+		// add SAME info to the union find set
+		if(consdata -> type == BRANCH_CONSTYPE_SAME)
+		{
+			RepUnion(consdata -> rep, consdata -> edge1, consdata -> edge2);
+		}
+
 	}
 
 	return SCIP_OKAY;
@@ -173,6 +258,8 @@ SCIP_DECL_CONSDELETE(consDeleteBranchInfo)
 
 	SCIPfreeBlockMemoryArray(scip, &((*consdata) -> same_branch), 2 * ((*consdata) -> nsame));
 	SCIPfreeBlockMemoryArray(scip, &((*consdata) -> differ_branch), 2 * ((*consdata) -> ndiffer));
+
+	SCIPfreeBlockMemoryArray(scip, &((*consdata) -> rep), (*consdata) -> nedges);
 
 	SCIPfreeBlockMemory(scip, consdata);
 
