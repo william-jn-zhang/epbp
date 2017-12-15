@@ -400,3 +400,44 @@ SCIP_CONS* SCIPprobdataGETConstraint(
 
 	return probdata -> constraints[edge];
 }
+
+SCIP_Bool SCIPprobdataIsEdgeInSet(
+	SCIP* scip,                    // scip data structure
+	int idx,                       // the index of the corresponding variable/set
+	int edge                       // the edge
+	)
+{
+	SCIP_PROBDATA* probdata;
+	int l;
+	int u;
+	int m;
+
+	assert(scip != NULL);
+	probdata = SCIPgetProbData(scip);
+	assert(probdata != NULL);
+	assert(edge >= 0 && edge < probdata -> nedges);
+	assert(idx >= 0 && idx < probdata -> nSets);
+
+	//bi-search
+
+	l = 0;
+	u = probdata -> setsSize[idx] - 1;
+	while(l <= u)
+	{
+		m = (l + u) / 2;
+		if(probdata -> setArray[idx][m] == edge)
+		{
+			return TRUE;
+		}
+		if(probdata -> setArray[idx][m] > edge)
+		{
+			l = m + 1;
+		}
+		if(probdata -> setArray[idx][m] < edge)
+		{
+			u = m - 1;
+		}
+	}
+	return FALSE;
+
+}

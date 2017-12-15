@@ -66,6 +66,8 @@ struct SCIP_ConsData
 	int*               rep;           // union find set for the SAME branch info
 	                                  // [alloc and set in CONS_ACTIVE event]
 	int                nedges;        // number of edges, the size of the rep array
+
+	int                propagatedvars;// remember the number of vars that have been propagated
 };
 
 struct SCIP_ConshdlrData

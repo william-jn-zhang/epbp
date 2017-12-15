@@ -34,6 +34,7 @@ struct SCIP_ProbData
 	int maxnSet;     //the max size of the array of sets
 	int nSets;       //the number of stored sets in the array
 	int** setArray;  //the array that store the sets
+	                 //NOTE: each array should be sorted 
 	int* setsSize;   //store the size of each set
 
 
@@ -81,5 +82,13 @@ extern
 SCIP_CONS* SCIPprobdataGETConstraint(
 	SCIP* scip, 
 	int edge
+	);
+
+/* to check whether [edge] is in  varset [idx]*/
+extern
+SCIP_Bool SCIPprobdataIsEdgeInSet(
+	SCIP* scip,                    // scip data structure
+	int idx,                       // the index of the corresponding variable/set
+	int edge                       // the edge
 	);
 #endif

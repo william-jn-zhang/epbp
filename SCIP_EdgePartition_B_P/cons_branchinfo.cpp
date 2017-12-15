@@ -216,6 +216,11 @@ SCIP_DECL_CONSACTIVE(consActiveBranchInfo)
 			RepUnion(consdata -> rep, consdata -> edge1, consdata -> edge2);
 		}
 
+		if(consdata -> propagatedvars < SCIPgetNTotalVars(scip))
+		{
+			SCIP_CALL( SCIPrepropagateNode(scip, consdata -> stickingatnode) );
+		}
+			
 	}
 
 	return SCIP_OKAY;
@@ -305,6 +310,75 @@ SCIP_DECL_CONSEXITSOL(consExitsolBranchInfo)
 	return SCIP_OKAY;
 }
 
+static
+SCIP_DECL_CONSPROP(consPropBranchInfo)
+{
+	SCIP_CONSHDLRDATA* conshdlrData;
+	SCIP_CONS*         cons;
+	SCIP_CONSDATA*     consdata;
+	SCIP_VAR*          var;
+	SCIP_PROBDATA*     probdata;
+	int*               set;
+	int                setlength;
+	int                nsets;
+	int                i;
+	int                propcount;
+
+	assert(conshdlr != NULL);
+	conshdlrData = SCIPconshdlrGetData(conshdlr);
+	assert(conshdlrData != NULL);
+	assert(conshdlrData -> stack != NULL);
+
+	probdata = SCIPgetProbData(scip);
+	assert(probdata != NULL);
+
+	nsets = probdata ->nSets;
+	*result = SCIP_DIDNOTFIND;
+	propcount = 0;
+
+	cons = conshdlrData -> stack[conshdlrData -> ncons - 1];
+	consdata = SCIPconsGetData(cons);
+
+	if(consdata -> type == BRANCH_CONSTYPE_DIFFER)
+	{
+		for(int i = 0; i < nsets; ++i)
+		{
+			if(!SCIPisFeasZero(scip, SCIPvarGetUbLocal(probdata -> vars[i])))
+			{
+				// if there exists a variable that contains both edge1 and edge2
+				if(SCIPprobdataIsEdgeInSet(scip, i, consdata -> edge1) && SCIPprobdataIsEdgeInSet(scip, i, consdata -> edge2))
+				{
+					var = probdata -> vars[i];
+					SCIP_CALL(SCIPchgVarUb(scip, var, 0.0));
+					++propcount;
+				}
+			}
+		}
+	}
+
+	if(consdata -> type == BRANCH_CONSTYPE_SAME)
+	{
+		for(int i = 0; i < nsets; ++i)
+		{
+			if(!SCIPisFeasZero(scip, SCIPvarGetUbLocal(probdata -> vars[i])))
+			{
+				// if there exists a variable that contains both edge1 and edge2
+				if((SCIPprobdataIsEdgeInSet(scip, i, consdata -> edge1) || SCIPprobdataIsEdgeInSet(scip, i, consdata -> edge2))
+					&& !(SCIPprobdataIsEdgeInSet(scip, i, consdata -> edge1) && SCIPprobdataIsEdgeInSet(scip, i, consdata -> edge2)))
+				{
+					var = probdata -> vars[i];
+					SCIP_CALL(SCIPchgVarUb(scip, var, 0.0));
+					++propcount;
+				}
+			}
+		}
+	}
+
+	consdata -> propagatedvars = SCIPgetNTotalVars(scip);
+
+	return SCIP_OKAY;
+}
+
 SCIP_RETCODE SCIPincludeConshdlrBranchInfo(
 	SCIP* scip
 	)
@@ -335,6 +409,8 @@ SCIP_RETCODE SCIPincludeConshdlrBranchInfo(
 	SCIP_CALL( SCIPsetConshdlrDelete(scip, conshdlr, consDeleteBranchInfo) );
 	SCIP_CALL( SCIPsetConshdlrFree(scip, conshdlr, consFreeBranchInfoHdlr) );
 	SCIP_CALL( SCIPsetConshdlrExitsol(scip, conshdlr, consExitsolBranchInfo) );
+	SCIP_CALL( SCIPsetConshdlrProp(scip, conshdlr, consPropBranchInfo, CONSHDLR_PROPFREQ, CONSHDLR_DELAYPROP,
+         CONSHDLR_PROP_TIMING) );
 
 	return SCIP_OKAY;
 }
