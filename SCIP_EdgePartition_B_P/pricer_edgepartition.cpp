@@ -12,11 +12,20 @@
 #include "cons_branchinfo.h"
 #include "scip/cons_setppc.h"
 #include "scip/cons_knapsack.h"
+#include "scip/scipdefplugins.h"
+#include "probdata_edgepartition.h"
 
 #define PRICER_NAME            "pricer_edgeparititon"
 #define PRICER_DESC            "pricer for edge partition"
 #define PRICER_PRIORITY        5000000
 #define PRICER_DELAY           TRUE     /* only call pricer if all problem variables have non-negative reduced costs */
+
+enum PRICER_RESULT
+{
+	OPTIMAL,
+	FIND_IMPROVE,
+	DIDNOTRUN
+};
 
 struct SCIP_PricerData
 {
@@ -85,6 +94,129 @@ SCIP_DECL_PRICEREXITSOL(pricerExitSolEdgepartition)
 	return SCIP_OKAY;
 }
 
+/*
+* alloc subscip memory and construct problem instance of subscip
+*/
+static
+SCIP_RETCODE IPPricer(
+	SCIP*            scip,
+	SCIP_PRICERDATA* pricerdata,
+	PRICER_RESULT*   result
+	)
+{
+	SCIP_PROBDATA* probdata;
+
+	SCIP* subscip;
+	SCIP_VAR** edge_vars; // edge variables array
+	SCIP_VAR** node_vars; // node variables array
+
+	int* edgeVarsObjCoef; // the coefficent of edge variables in the objective
+	int* edgeVarsSizeConsCoef; // the coefficent of edge variables in the size-constraint
+	
+	SCIP_VAR*  var;
+	char varname[MAX_NAME_LEN];
+	SCIP_CONS* cons;
+
+	int nedges;
+	int nnodes;
+
+	/* branch-info constraint */
+	SCIP_CONSHDLR* conshdlr;
+	SCIP_CONSDATA* branchInfo_consdata;
+	SCIP_CONSHDLRDATA* conshdlrData;
+
+	assert(scip != NULL);
+	assert(pricerdata != NULL);
+	
+	/* collect data */
+
+	probdata = SCIPgetProbData(scip);
+	assert(probdata != NULL);
+
+	nedges = probdata -> nedges;
+	nnodes = probdata -> nnodes;
+
+	conshdlr = SCIPfindConshdlr(scip, CONSHDLR_NAME);
+
+	assert(conshdlr != NULL);
+
+	conshdlrData = SCIPconshdlrGetData(conshdlr);
+	assert(conshdlrData != NULL);
+	assert(conshdlrData -> stack != NULL);
+	cons = conshdlrData -> stack[conshdlrData -> ncons - 1];
+	assert(cons != NULL);
+	branchInfo_consdata = SCIPconsGetData(cons);
+	assert(branchInfo_consdata != NULL);
+
+	*result = DIDNOTRUN;
+
+	SCIP_CALL( SCIPcreate(&subscip) );
+	assert(subscip != NULL);
+	SCIP_CALL( SCIPincludeDefaultPlugins(subscip) );
+
+	SCIP_CALL( SCIPcreateProbBasic(subscip, "pricing") );
+	SCIP_CALL( SCIPsetObjsense(subscip, SCIP_OBJSENSE_MINIMIZE) );
+
+	SCIP_CALL( SCIPallocBufferArray(scip, &edge_vars, nedges) );
+	SCIP_CALL( SCIPallocBufferArray(scip, &node_vars, nnodes) );
+
+	SCIP_CALL( SCIPallocBufferArray(scip, &edgeVarsObjCoef, nedges) );
+	SCIP_CALL( SCIPallocBufferArray(scip, &edgeVarsSizeConsCoef, nedges) );
+	memset(edgeVarsObjCoef, 0, nedges * sizeof(int));
+	memset(edgeVarsSizeConsCoef, 0, nedges * sizeof(int));
+
+	// construct coefficents
+	for(int i = 0; i < nedges; ++i)
+	{
+		edgeVarsObjCoef[RepFind(branchInfo_consdata -> rep, i)] += pricerdata -> pi[i];
+		edgeVarsSizeConsCoef[RepFind(branchInfo_consdata -> rep, i)] += 1;
+	}
+
+	/* add variables */
+
+	// add node variables
+	for(int i = 0; i < nnodes; ++i)
+	{
+		generateElementName(varname, "node", i, -1, -1);
+		SCIP_CALL( SCIPcreateVarBasic(subscip, &var, varname, 0.0, 1.0, 1.0, SCIP_VARTYPE_BINARY) );
+		SCIP_CALL( SCIPaddVar(subscip, var) );
+
+		node_vars[i] = var;
+
+		SCIP_CALL( SCIPreleaseVar(subscip, &var) );
+	}
+
+	// add edge variables
+	for(int i = 0; i < nedges; ++i)
+	{
+		if(edgeVarsObjCoef[i] != 0)
+		{
+			generateElementName(varname, "edge", i, -1, -1);
+			SCIP_CALL( SCIPcreateVarBasic(subscip, &var, varname, 0.0, 1.0, edgeVarsObjCoef[i], SCIP_VARTYPE_BINARY) );
+			SCIP_CALL( SCIPaddVar(subscip, var) );
+
+			edge_vars[i] = var;
+
+			SCIP_CALL( SCIPreleaseVar(subscip, &var) );
+		}
+		else
+		{
+			edge_vars[i] = NULL;
+		}
+	}
+
+	/* add constraints */
+
+
+
+	SCIPfreeBufferArray(scip, &edge_vars);
+	SCIPfreeBufferArray(scip, &node_vars);
+	SCIPfreeBufferArray(scip, &edgeVarsObjCoef);
+	SCIPfreeBufferArray(scip, &edgeVarsSizeConsCoef);
+
+	return SCIP_OKAY;
+}
+
 
 static
 SCIP_DECL_PRICERREDCOST(pricerRedcostEdgePartition)
@@ -149,7 +281,8 @@ SCIP_DECL_PRICERREDCOST(pricerRedcostEdgePartition)
 	*/
 	if(pricerdata -> nsetsfound == 0)
 	{
-
+		SCIP* subscip;
+		
 	}
 
 	return SCIP_OKAY;

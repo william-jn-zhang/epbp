@@ -91,4 +91,13 @@ SCIP_Bool SCIPprobdataIsEdgeInSet(
 	int idx,                       // the index of the corresponding variable/set
 	int edge                       // the edge
 	);
+
+/*
+* generate element (var, cons) name
+* param: eleName, i, j, k
+* generate: eleName_i_j_k
+* note that if j,k < 0, it will not put into result
+*/
+extern
+void generateElementName(char* result, const char* eleName, int i, int j, int k);
 #endif

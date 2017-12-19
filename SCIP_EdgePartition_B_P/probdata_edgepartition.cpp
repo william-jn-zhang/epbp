@@ -163,7 +163,6 @@ SCIP_DECL_EVENTEXEC(eventExecProbdatavardeleted)
 * generate: eleName_i_j_k
 * note that if j,k < 0, it will not put into result
 */
-static
 void generateElementName(char* result, const char* eleName, int i, int j, int k)
 {
 	char buf[MAX_NAME_LEN];
