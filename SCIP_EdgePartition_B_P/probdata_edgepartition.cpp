@@ -249,7 +249,7 @@ SCIP_RETCODE SCIPprobdataEPPCreate(
 
 	/* allocate the array memory */
 
-	probdata -> constraintssize = nedges;
+	probdata -> constraintssize = nedges + 1;
 	SCIP_CALL( SCIPallocBlockMemoryArray(scip, &(probdata -> constraints), probdata -> constraintssize) );
 
 	/* allocate the initial memory for set array */
@@ -275,7 +275,7 @@ SCIP_RETCODE SCIPprobdataEPPCreate(
 
 #ifndef TEST_READ
 	//create constraints
-	for(int i = 0; i < probdata -> constraintssize; ++i)
+	for(int i = 0; i < probdata -> constraintssize - 1; ++i)
 	{
 		char consname[MAX_NAME_LEN];
 		generateElementName(consname, "edge_constraint", i, -1, -1);
@@ -285,6 +285,13 @@ SCIP_RETCODE SCIPprobdataEPPCreate(
 		//decrease the reference count
 		//SCIP_CALL( SCIPreleaseCons(scip, &(probdata -> constraints[i])) );
 	}
+
+	char consname[MAX_NAME_LEN];
+	generateElementName(consname, "num_constraint", 1, -1, -1);
+
+	SCIP_CALL( SCIPcreateConsKnapsack(scip, &(probdata -> constraints[probdata -> constraintssize - 1]), consname, 0, NULL, NULL, nparts, NULL, TRUE, TRUE, TRUE, TRUE, FALSE, TRUE, TRUE, FALSE, FALSE) );
+	SCIP_CALL( SCIPaddCons(scip, probdata -> constraints[probdata -> constraintssize - 1]) );
+
 #endif
 
 	SCIP_CALL( SCIPsetProbData(scip, probdata) );

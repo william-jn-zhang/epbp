@@ -9,6 +9,7 @@
 #include "heur.h"
 #include "probdata_edgepartition.h"
 #include "scip/cons_setppc.h"
+#include "scip/cons_knapsack.h"
 
 #define HEUR_NAME             "init heuristic"
 #define HEUR_DESC             "initial primal heuristic"
@@ -218,6 +219,9 @@ SCIP_DECL_HEUREXEC(heurExecInit)
 				 SCIP_CALL( SCIPaddCoefSetppc(scip, probdata -> constraints[parts[i][j]], var) );
 				 //another constraint
 			 }
+
+			 // add variable into the num-constraints
+			 SCIP_CALL( SCIPaddCoefKnapsack(scip, probdata -> constraints[probdata -> constraintssize - 1], var, 1.0) );
 		 }
 	 }
 
