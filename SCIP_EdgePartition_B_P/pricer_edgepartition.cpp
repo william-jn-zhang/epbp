@@ -7,6 +7,7 @@
 
 #include <assert.h>
 #include <string.h>
+#include <math.h>
 
 #include "pricer_edgepartition.h"
 #include "cons_branchinfo.h"
@@ -14,6 +15,36 @@
 #include "scip/cons_knapsack.h"
 #include "scip/scipdefplugins.h"
 #include "probdata_edgepartition.h"
+
+#include "scip/heur_actconsdiving.h"
+#include "scip/heur_coefdiving.h"
+#include "scip/heur_crossover.h"
+#include "scip/heur_dins.h"
+#include "scip/heur_feaspump.h"
+#include "scip/heur_fixandinfer.h"
+#include "scip/heur_fracdiving.h"
+#include "scip/heur_guideddiving.h"
+#include "scip/heur_intdiving.h"
+#include "scip/heur_intshifting.h"
+#include "scip/heur_linesearchdiving.h"
+#include "scip/heur_localbranching.h"
+#include "scip/heur_mutation.h"
+#include "scip/heur_objpscostdiving.h"
+#include "scip/heur_octane.h"
+#include "scip/heur_oneopt.h"
+#include "scip/heur_pscostdiving.h"
+#include "scip/heur_rens.h"
+#include "scip/heur_rins.h"
+#include "scip/heur_rootsoldiving.h"
+#include "scip/heur_rounding.h"
+#include "scip/heur_shifting.h"
+#include "scip/heur_simplerounding.h"
+#include "scip/heur_trivial.h"
+#include "scip/heur_trysol.h"
+#include "scip/heur_twoopt.h"
+#include "scip/heur_undercover.h"
+#include "scip/heur_veclendiving.h"
+#include "scip/heur_zirounding.h"
 
 #define PRICER_NAME            "pricer_edgeparititon"
 #define PRICER_DESC            "pricer for edge partition"
@@ -110,15 +141,25 @@ SCIP_RETCODE IPPricer(
 	SCIP_VAR** edge_vars; // edge variables array
 	SCIP_VAR** node_vars; // node variables array
 
+	int nedgevars; // number of non-null elements in edge_vars array
+
 	int* edgeVarsObjCoef; // the coefficent of edge variables in the objective
 	int* edgeVarsSizeConsCoef; // the coefficent of edge variables in the size-constraint
 	
 	SCIP_VAR*  var;
-	char varname[MAX_NAME_LEN];
+	char elename[MAX_NAME_LEN];
 	SCIP_CONS* cons;
 
 	int nedges;
 	int nnodes;
+
+	MY_GRAPH* graph;
+
+	SCIP_VAR** tmpvars;
+	double*      tmpvals;
+	long long*   tmpvals1;
+	int tmpsize;
+	long long    capacity;
 
 	/* branch-info constraint */
 	SCIP_CONSHDLR* conshdlr;
@@ -135,6 +176,7 @@ SCIP_RETCODE IPPricer(
 
 	nedges = probdata -> nedges;
 	nnodes = probdata -> nnodes;
+	graph = probdata -> orgngraph;
 
 	conshdlr = SCIPfindConshdlr(scip, CONSHDLR_NAME);
 
@@ -177,13 +219,14 @@ SCIP_RETCODE IPPricer(
 	// add node variables
 	for(int i = 0; i < nnodes; ++i)
 	{
-		generateElementName(varname, "node", i, -1, -1);
-		SCIP_CALL( SCIPcreateVarBasic(subscip, &var, varname, 0.0, 1.0, 1.0, SCIP_VARTYPE_BINARY) );
+		generateElementName(elename, "node", i, -1, -1);
+		SCIP_CALL( SCIPcreateVarBasic(subscip, &var, elename, 0.0, 1.0, 1.0, SCIP_VARTYPE_BINARY) );
 		SCIP_CALL( SCIPaddVar(subscip, var) );
 
 		node_vars[i] = var;
 
 		SCIP_CALL( SCIPreleaseVar(subscip, &var) );
+		++nedgevars;
 	}
 
 	// add edge variables
@@ -191,8 +234,8 @@ SCIP_RETCODE IPPricer(
 	{
 		if(edgeVarsObjCoef[i] != 0)
 		{
-			generateElementName(varname, "edge", i, -1, -1);
-			SCIP_CALL( SCIPcreateVarBasic(subscip, &var, varname, 0.0, 1.0, edgeVarsObjCoef[i], SCIP_VARTYPE_BINARY) );
+			generateElementName(elename, "edge", i, -1, -1);
+			SCIP_CALL( SCIPcreateVarBasic(subscip, &var, elename, 0.0, 1.0, edgeVarsObjCoef[i], SCIP_VARTYPE_BINARY) );
 			SCIP_CALL( SCIPaddVar(subscip, var) );
 
 			edge_vars[i] = var;
@@ -207,12 +250,110 @@ SCIP_RETCODE IPPricer(
 
 	/* add constraints */
 
+	// add edge-node relation constraints
+	SCIP_CALL( SCIPallocBufferArray(scip, &tmpvars, 2) );
+	SCIP_CALL( SCIPallocBufferArray(scip, &tmpvals, 2) );
+	for(int i = 0; i < nedges; ++i)
+	{
+		MY_EDGE e = MY_GRAPHgetEdge(graph, i);
 
+		tmpvars[0] = node_vars[e.node1];
+		tmpvars[1] = edge_vars[RepFind(branchInfo_consdata -> rep, i)];
+		tmpvals[0] = 1.0;
+		tmpvals[1] = -1.0;
+		generateElementName(elename, "relation_cons", i, e.node1, -1);
+		SCIPcreateConsBasicLinear(subscip, &cons, elename, 2, tmpvars, tmpvals, 0, SCIP_DEFAULT_INFINITY);
+		SCIPaddCons(subscip, cons);
+		SCIPreleaseCons(subscip, &cons);
+
+		tmpvars[0] = node_vars[e.node2];
+		tmpvars[1] = edge_vars[RepFind(branchInfo_consdata -> rep, i)];
+		tmpvals[0] = 1.0;
+		tmpvals[1] = -1.0;
+		generateElementName(elename, "relation_cons", i, e.node2, -1);
+		SCIP_CALL( SCIPcreateConsBasicLinear(subscip, &cons, elename, 2, tmpvars, tmpvals, 0, SCIP_DEFAULT_INFINITY) );
+		SCIP_CALL( SCIPaddCons(subscip, cons) );
+		SCIP_CALL( SCIPreleaseCons(subscip, &cons) );
+	}
+	SCIPfreeBufferArray(scip, &tmpvars);
+	SCIPfreeBufferArray(scip, &tmpvals);
+
+	//add size constraint
+	tmpsize = 0;
+	SCIP_CALL( SCIPallocBufferArray(scip, &tmpvars, nedgevars) );
+	SCIP_CALL( SCIPallocBufferArray(scip, &tmpvals1, nedgevars) );
+	for(int i = 0; i < nedges; ++i)
+	{
+		if(edgeVarsSizeConsCoef[i] != 0)
+		{
+			tmpvars[tmpsize] = edge_vars[i];
+			tmpvals1[tmpsize] = edgeVarsSizeConsCoef[i];
+			++tmpsize;
+		}
+	}
+	assert(tmpsize == nedgevars);
+	capacity = ceil((double)(probdata -> alpha) * nedges / (probdata -> nparts));
+	SCIP_CALL( SCIPcreateConsBasicKnapsack(subscip, &cons, "size_cons", nedgevars, tmpvars, tmpvals1, capacity) );
+	SCIP_CALL( SCIPaddCons(subscip, cons) );
+	SCIP_CALL( SCIPreleaseCons(subscip, &cons) );
+	SCIPfreeBufferArray(scip, &tmpvars);
+	SCIPfreeBufferArray(scip, &tmpvals1);
+
+	// add differ branch-info constraints
+	SCIP_CALL( SCIPallocBufferArray(scip, &tmpvars, 2) );
+	for(int i = 0; i < branchInfo_consdata -> ndiffer; ++i)
+	{
+		int e1 = branchInfo_consdata -> differ_branch[i][0];
+		int e2 = branchInfo_consdata -> differ_branch[i][1];
+		assert(e1 != e2);
+		tmpvars[0] = edge_vars[RepFind(branchInfo_consdata -> rep, e1)];
+		tmpvars[1] = edge_vars[RepFind(branchInfo_consdata -> rep, e2)];
+
+		generateElementName(elename, "differ_cons", i, -1, -1);
+		SCIP_CALL( SCIPcreateConsBasicSetpack(subscip, &cons, elename, 2, tmpvars) );
+		SCIP_CALL( SCIPaddCons(subscip, cons) );
+		SCIP_CALL( SCIPreleaseCons(subscip, &cons) );
+	}
+	SCIPfreeBufferArray(scip, &tmpvars);
 
 	SCIPfreeBufferArray(scip, &edge_vars);
 	SCIPfreeBufferArray(scip, &node_vars);
 	SCIPfreeBufferArray(scip, &edgeVarsObjCoef);
 	SCIPfreeBufferArray(scip, &edgeVarsSizeConsCoef);
+
+	/* finished build problem */
+
+	//add heuristic
+	SCIP_CALL( SCIPincludeHeurActconsdiving(subscip) );
+	SCIP_CALL( SCIPincludeHeurCoefdiving(subscip) );
+	SCIP_CALL( SCIPincludeHeurCrossover(subscip) );
+	SCIP_CALL( SCIPincludeHeurDins(subscip) );
+	SCIP_CALL( SCIPincludeHeurFixandinfer(subscip) );
+	SCIP_CALL( SCIPincludeHeurFracdiving(subscip) );
+	SCIP_CALL( SCIPincludeHeurGuideddiving(subscip) );
+	SCIP_CALL( SCIPincludeHeurIntdiving(subscip) );
+	SCIP_CALL( SCIPincludeHeurIntshifting(subscip) );
+	SCIP_CALL( SCIPincludeHeurLinesearchdiving(subscip) );
+	SCIP_CALL( SCIPincludeHeurLocalbranching(subscip) );
+	SCIP_CALL( SCIPincludeHeurMutation(subscip) );
+	SCIP_CALL( SCIPincludeHeurObjpscostdiving(subscip) );
+	SCIP_CALL( SCIPincludeHeurOctane(subscip) );
+	SCIP_CALL( SCIPincludeHeurOneopt(subscip) );
+	SCIP_CALL( SCIPincludeHeurPscostdiving(subscip) );
+	SCIP_CALL( SCIPincludeHeurRens(subscip) );
+	SCIP_CALL( SCIPincludeHeurRins(subscip) );
+	SCIP_CALL( SCIPincludeHeurRootsoldiving(subscip) );
+	SCIP_CALL( SCIPincludeHeurRounding(subscip) );
+	SCIP_CALL( SCIPincludeHeurShifting(subscip) );
+	SCIP_CALL( SCIPincludeHeurSimplerounding(subscip) );
+	SCIP_CALL( SCIPincludeHeurTrivial(subscip) );
+	SCIP_CALL( SCIPincludeHeurTrySol(subscip) );
+	SCIP_CALL( SCIPincludeHeurTwoopt(subscip) );
+	SCIP_CALL( SCIPincludeHeurUndercover(subscip) );
+	SCIP_CALL( SCIPincludeHeurVeclendiving(subscip) );
+	SCIP_CALL( SCIPincludeHeurZirounding(subscip) );
+
+
 
 	return SCIP_OKAY;
 }
