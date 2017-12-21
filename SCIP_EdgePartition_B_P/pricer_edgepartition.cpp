@@ -125,6 +125,100 @@ SCIP_DECL_PRICEREXITSOL(pricerExitSolEdgepartition)
 	return SCIP_OKAY;
 }
 
+/* <start> subscip BESTSOL event handler code block */
+#define EVENTHDLR_NAME         "bestsol"
+#define EVENTHDLR_DESC         "event handler for best solutions found"
+
+/* init method of BESTSOL event handler */
+static
+SCIP_DECL_EVENTINIT(subscipEventInitBestsol)
+{
+	assert(scip != NULL);
+	assert(eventhdlr != NULL);
+	assert(strcmp(SCIPeventhdlrGetName(eventhdlr), EVENTHDLR_NAME) == 0);
+
+	SCIP_CALL( SCIPcatchEvent(scip, SCIP_EVENTTYPE_BESTSOLFOUND, eventhdlr, NULL, NULL) );
+	return SCIP_OKAY;
+}
+
+/* exit method of BESTSOL event handler */
+static
+SCIP_DECL_EVENTEXIT(subscipEventExitBestsol)
+{
+	assert(scip != NULL);
+	assert(eventhdlr != NULL);
+	assert(strcmp(SCIPeventhdlrGetName(eventhdlr), EVENTHDLR_NAME) == 0);
+
+	SCIP_CALL( SCIPdropEvent(scip, SCIP_EVENTTYPE_BESTSOLFOUND, eventhdlr, NULL, -1) );
+	return SCIP_OKAY;
+}
+
+/* execute method of BESTSOL event handler */
+static
+SCIP_DECL_EVENTEXEC(subscipEventExecBestsol)
+{
+	SCIP_SOL* bestsol;
+	SCIP_Real solval;
+	SCIP_Real threshold;
+	assert(scip != NULL);
+	assert(eventhdlr != NULL);
+	assert(strcmp(SCIPeventhdlrGetName(eventhdlr), EVENTHDLR_NAME) == 0);
+	assert(event != NULL);
+	assert(SCIPeventGetType(event) == SCIP_EVENTTYPE_BESTSOLFOUND);
+
+	bestsol = SCIPgetBestSol(scip);
+	threshold = (double)(size_t)SCIPeventhdlrGetData(eventhdlr);
+	assert(bestsol != NULL);
+
+	solval = SCIPgetSolOrigObj(scip, bestsol);
+
+	/* once we find a feasible solution, terminate */
+	if(threshold + solval >= 1.0)
+	{
+		SCIP_CALL( SCIPinterruptSolve(scip) );
+	}
+
+	return SCIP_OKAY;
+}
+
+static
+SCIP_RETCODE subscipIncludeEventHdlrBestsol(
+	SCIP* subscip
+	)
+{
+	SCIP_EVENTHDLRDATA* eventhdlrdata;
+	SCIP_EVENTHDLR* eventhdlr;
+	eventhdlr = NULL;
+	eventhdlrdata = NULL;
+
+	SCIP_CALL( SCIPincludeEventhdlrBasic(subscip, &eventhdlr, EVENTHDLR_NAME, EVENTHDLR_DESC, subscipEventExecBestsol, NULL) );
+
+	SCIP_CALL( SCIPsetEventhdlrInit(subscip, eventhdlr, subscipEventInitBestsol) );
+	SCIP_CALL( SCIPsetEventhdlrExit(subscip, eventhdlr, subscipEventExitBestsol) );
+
+	return SCIP_OKAY;
+}
+
+static
+SCIP_RETCODE setSubscipBestsolEventHdlrData(
+	SCIP*          subscip,
+	const char*    eventhdlrName,
+	double         threshold
+)
+{
+	SCIP_EVENTHDLR* eventhdlr;
+	assert(subscip != NULL);
+	eventhdlr = SCIPfindEventhdlr(subscip, eventhdlrName);
+	assert(eventhdlr != NULL);
+
+	SCIPeventhdlrSetData(eventhdlr, (SCIP_EVENTHDLRDATA*)threshold);
+
+	return SCIP_OKAY;
+}
+
+
+/* <end> subscip BESTSOL event handler code block */
+
 /*
 * alloc subscip memory and construct problem instance of subscip
 */
@@ -165,6 +259,11 @@ SCIP_RETCODE IPPricer(
 	SCIP_CONSHDLR* conshdlr;
 	SCIP_CONSDATA* branchInfo_consdata;
 	SCIP_CONSHDLRDATA* conshdlrData;
+
+	/* the ip solution */
+	SCIP_SOL* bestsol;
+	SCIP_Real solval;
+	SCIP_Real threshold;
 
 	assert(scip != NULL);
 	assert(pricerdata != NULL);
@@ -235,7 +334,7 @@ SCIP_RETCODE IPPricer(
 		if(edgeVarsObjCoef[i] != 0)
 		{
 			generateElementName(elename, "edge", i, -1, -1);
-			SCIP_CALL( SCIPcreateVarBasic(subscip, &var, elename, 0.0, 1.0, edgeVarsObjCoef[i], SCIP_VARTYPE_BINARY) );
+			SCIP_CALL( SCIPcreateVarBasic(subscip, &var, elename, 0.0, 1.0, -edgeVarsObjCoef[i], SCIP_VARTYPE_BINARY) );
 			SCIP_CALL( SCIPaddVar(subscip, var) );
 
 			edge_vars[i] = var;
@@ -353,7 +452,24 @@ SCIP_RETCODE IPPricer(
 	SCIP_CALL( SCIPincludeHeurVeclendiving(subscip) );
 	SCIP_CALL( SCIPincludeHeurZirounding(subscip) );
 
+	/* 
+	* include BESTSOL event handler 
+	* in order to early terminate when find a suitable var
+	*/
+	SCIP_CALL( subscipIncludeEventHdlrBestsol(subscip) );
+	threshold = pricerdata -> pi[pricerdata -> constraintssize - 1];
+	SCIP_CALL( setSubscipBestsolEventHdlrData(subscip, EVENTHDLR_NAME, threshold) );
 
+	bestsol = SCIPgetBestSol(scip);
+	assert(bestsol != NULL);
+
+	solval = SCIPgetSolOrigObj(scip, bestsol);
+
+	/* once we find a feasible solution, terminate */
+	if(threshold + solval >= 1.0)
+	{
+		// TODO
+	}
 
 	return SCIP_OKAY;
 }
