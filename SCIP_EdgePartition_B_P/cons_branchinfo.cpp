@@ -85,6 +85,7 @@ SCIP_DECL_CONSINITSOL(consInitSolBranchInfo)
 	SCIP_CALL( SCIPallocBlockMemoryArray(scip, &(conshdlrData -> stack), conshdlrData -> maxstacksize) );
 
 	/* create root cons */
+	rootconsdata = NULL;
 	SCIP_CALL( SCIPallocBlockMemory(scip, &rootconsdata) );
 	rootconsdata -> nsame = 0;
 	rootconsdata -> ndiffer = 0;
@@ -386,6 +387,8 @@ SCIP_RETCODE SCIPincludeConshdlrBranchInfo(
 	SCIP_CONSHDLRDATA* conshdlrData;
 	SCIP_CONSHDLR* conshdlr;
 
+	conshdlrData = NULL;
+
 	SCIP_CALL( SCIPallocBlockMemory(scip, &conshdlrData) );
 	conshdlrData -> stack = NULL;
 	conshdlrData -> maxstacksize = 100;
@@ -462,6 +465,7 @@ SCIP_RETCODE SCIPconsCreateConsBranchInfo(
 		return SCIP_PLUGINNOTFOUND;
 	}
 
+	consdata = NULL;
 	SCIP_CALL(SCIPallocBlockMemory(scip, &consdata));
 
 	if(edge1 > edge2)

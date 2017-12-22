@@ -212,13 +212,14 @@ SCIP_RETCODE setSubscipBestsolEventHdlrData(
 	eventhdlr = SCIPfindEventhdlr(subscip, eventhdlrName);
 	assert(eventhdlr != NULL);
 
-	SCIPeventhdlrSetData(eventhdlr, (SCIP_EVENTHDLRDATA*)threshold);
+	SCIPeventhdlrSetData(eventhdlr, (SCIP_EVENTHDLRDATA*)(size_t)threshold);
 
 	return SCIP_OKAY;
 }
 
 
 /* <end> subscip BESTSOL event handler code block */
+
 
 /*
 * alloc subscip memory and construct problem instance of subscip
@@ -621,6 +622,7 @@ SCIP_RETCODE SCIPincludePricerEdgePartition(
 	SCIP_PRICER* pricer;
 	assert(scip != NULL);
 
+	pricerdata = NULL;
 	SCIP_CALL( SCIPallocBlockMemory(scip, &pricerdata) );
 	pricerdata -> scip = scip;
 	pricerdata -> maxvarsround = 0;
