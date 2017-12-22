@@ -46,11 +46,6 @@
 #include "scip/heur_veclendiving.h"
 #include "scip/heur_zirounding.h"
 
-#define PRICER_NAME            "pricer_edgeparititon"
-#define PRICER_DESC            "pricer for edge partition"
-#define PRICER_PRIORITY        5000000
-#define PRICER_DELAY           TRUE     /* only call pricer if all problem variables have non-negative reduced costs */
-
 /*enum PRICER_RESULT
 {
 	OPTIMAL,
@@ -633,6 +628,8 @@ SCIP_RETCODE SCIPincludePricerEdgePartition(
 	/* include variable pricer */
 	SCIP_CALL( SCIPincludePricerBasic(scip, &pricer, PRICER_NAME, PRICER_DESC, PRICER_PRIORITY, PRICER_DELAY,
          pricerRedcostEdgePartition, NULL, pricerdata) );
+
+	assert(pricer != NULL);
 
 	SCIP_CALL( SCIPsetPricerInitsol(scip, pricer, pricerInitSolEdgepartition) );
 	SCIP_CALL( SCIPsetPricerExitsol(scip, pricer, pricerExitSolEdgepartition) );

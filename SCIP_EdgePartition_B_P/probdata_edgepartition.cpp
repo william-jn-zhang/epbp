@@ -11,6 +11,7 @@
 #include "scip/cons_linear.h"
 
 #include "probdata_edgepartition.h"
+#include "pricer_edgepartition.h"
 
 #define VARDEL_EVENTHDLR_NAME "probdata var del"
 #define VARDEL_EVENTHDLR_DESC "event handler for variable deleted event"
@@ -294,6 +295,10 @@ SCIP_RETCODE SCIPprobdataEPPCreate(
 #endif
 
 	SCIP_CALL( SCIPsetProbData(scip, probdata) );
+
+	/* activate the pricer */
+	SCIP_CALL( SCIPactivatePricer(scip, SCIPfindPricer(scip, PRICER_NAME)) );
+	SCIP_CALL( SCIPsetObjIntegral(scip) );
 
 	return SCIP_OKAY;
 }
