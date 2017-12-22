@@ -234,7 +234,7 @@ SCIP_RETCODE IPPricer(
 
 	int nedgevars; // number of non-null elements in edge_vars array
 
-	int* edgeVarsObjCoef; // the coefficent of edge variables in the objective
+	SCIP_Real* edgeVarsObjCoef; // the coefficent of edge variables in the objective
 	int* edgeVarsSizeConsCoef; // the coefficent of edge variables in the size-constraint
 	
 	SCIP_VAR*  var;
@@ -302,12 +302,18 @@ SCIP_RETCODE IPPricer(
 	SCIP_CALL( SCIPcreateProbBasic(subscip, "pricing") );
 	SCIP_CALL( SCIPsetObjsense(subscip, SCIP_OBJSENSE_MINIMIZE) );
 
+	edge_vars = NULL;
+	node_vars = NULL;
+
+	edgeVarsObjCoef = NULL;
+	edgeVarsSizeConsCoef = NULL;
+
 	SCIP_CALL( SCIPallocBufferArray(scip, &edge_vars, nedges) );
 	SCIP_CALL( SCIPallocBufferArray(scip, &node_vars, nnodes) );
 
 	SCIP_CALL( SCIPallocBufferArray(scip, &edgeVarsObjCoef, nedges) );
 	SCIP_CALL( SCIPallocBufferArray(scip, &edgeVarsSizeConsCoef, nedges) );
-	memset(edgeVarsObjCoef, 0, nedges * sizeof(int));
+	memset(edgeVarsObjCoef, 0, nedges * sizeof(SCIP_Real));
 	memset(edgeVarsSizeConsCoef, 0, nedges * sizeof(int));
 
 	// construct coefficents
@@ -329,13 +335,13 @@ SCIP_RETCODE IPPricer(
 		node_vars[i] = var;
 
 		SCIP_CALL( SCIPreleaseVar(subscip, &var) );
-		++nedgevars;
 	}
 
 	// add edge variables
+	nedgevars = 0;
 	for(int i = 0; i < nedges; ++i)
 	{
-		if(edgeVarsObjCoef[i] != 0)
+		if(edgeVarsSizeConsCoef[i] != 0)
 		{
 			generateElementName(elename, "edge", i, -1, -1);
 			SCIP_CALL( SCIPcreateVarBasic(subscip, &var, elename, 0.0, 1.0, -edgeVarsObjCoef[i], SCIP_VARTYPE_BINARY) );
@@ -344,6 +350,7 @@ SCIP_RETCODE IPPricer(
 			edge_vars[i] = var;
 
 			SCIP_CALL( SCIPreleaseVar(subscip, &var) );
+			++nedgevars;
 		}
 		else
 		{
@@ -354,6 +361,8 @@ SCIP_RETCODE IPPricer(
 	/* add constraints */
 
 	// add edge-node relation constraints
+	tmpvars = NULL;
+	tmpvals = NULL;
 	SCIP_CALL( SCIPallocBufferArray(scip, &tmpvars, 2) );
 	SCIP_CALL( SCIPallocBufferArray(scip, &tmpvals, 2) );
 	for(int i = 0; i < nedges; ++i)
@@ -364,15 +373,19 @@ SCIP_RETCODE IPPricer(
 		tmpvars[1] = edge_vars[RepFind(branchInfo_consdata -> rep, i)];
 		tmpvals[0] = 1.0;
 		tmpvals[1] = -1.0;
+		assert(tmpvars[0] != NULL);
+		assert(tmpvars[1] != NULL);
 		generateElementName(elename, "relation_cons", i, e.node1, -1);
-		SCIPcreateConsBasicLinear(subscip, &cons, elename, 2, tmpvars, tmpvals, 0, SCIP_DEFAULT_INFINITY);
-		SCIPaddCons(subscip, cons);
-		SCIPreleaseCons(subscip, &cons);
+		SCIP_CALL( SCIPcreateConsBasicLinear(subscip, &cons, elename, 2, tmpvars, tmpvals, 0, SCIP_DEFAULT_INFINITY) );
+		SCIP_CALL( SCIPaddCons(subscip, cons) );
+		SCIP_CALL( SCIPreleaseCons(subscip, &cons) );
 
 		tmpvars[0] = node_vars[e.node2];
 		tmpvars[1] = edge_vars[RepFind(branchInfo_consdata -> rep, i)];
 		tmpvals[0] = 1.0;
 		tmpvals[1] = -1.0;
+		assert(tmpvars[0] != NULL);
+		assert(tmpvars[1] != NULL);
 		generateElementName(elename, "relation_cons", i, e.node2, -1);
 		SCIP_CALL( SCIPcreateConsBasicLinear(subscip, &cons, elename, 2, tmpvars, tmpvals, 0, SCIP_DEFAULT_INFINITY) );
 		SCIP_CALL( SCIPaddCons(subscip, cons) );
@@ -383,6 +396,7 @@ SCIP_RETCODE IPPricer(
 
 	//add size constraint
 	tmpsize = 0;
+	tmpvals1 = NULL;
 	SCIP_CALL( SCIPallocBufferArray(scip, &tmpvars, nedgevars) );
 	SCIP_CALL( SCIPallocBufferArray(scip, &tmpvals1, nedgevars) );
 	for(int i = 0; i < nedges; ++i)
