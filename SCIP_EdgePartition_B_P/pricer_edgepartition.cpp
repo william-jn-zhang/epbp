@@ -51,12 +51,12 @@
 #define PRICER_PRIORITY        5000000
 #define PRICER_DELAY           TRUE     /* only call pricer if all problem variables have non-negative reduced costs */
 
-enum PRICER_RESULT
+/*enum PRICER_RESULT
 {
 	OPTIMAL,
 	FIND_IMPROVE,
 	DIDNOTRUN
-};
+};*/
 
 struct SCIP_PricerData
 {
@@ -173,7 +173,8 @@ SCIP_DECL_EVENTEXEC(subscipEventExecBestsol)
 	solval = SCIPgetSolOrigObj(scip, bestsol);
 
 	/* once we find a feasible solution, terminate */
-	if(threshold + solval >= 1.0)
+	//if(threshold + solval >= 1.0)
+	if(SCIPisFeasGT(scip, (threshold + solval), 1.0))
 	{
 		SCIP_CALL( SCIPinterruptSolve(scip) );
 	}
@@ -226,7 +227,7 @@ static
 SCIP_RETCODE IPPricer(
 	SCIP*            scip,
 	SCIP_PRICERDATA* pricerdata,
-	PRICER_RESULT*   result
+	SCIP_RESULT*   result
 	)
 {
 	SCIP_PROBDATA* probdata;
@@ -254,6 +255,13 @@ SCIP_RETCODE IPPricer(
 	long long*   tmpvals1;
 	int tmpsize;
 	long long    capacity;
+
+	SCIP_Bool addvar;
+	int*      setArray;
+	int       setArrayLength;
+	int       newvaridx;
+	int       newvarcoef;
+	int*      varnodeset;
 
 	/* branch-info constraint */
 	SCIP_CONSHDLR* conshdlr;
@@ -289,7 +297,7 @@ SCIP_RETCODE IPPricer(
 	branchInfo_consdata = SCIPconsGetData(cons);
 	assert(branchInfo_consdata != NULL);
 
-	*result = DIDNOTRUN;
+	(*result) = SCIP_DIDNOTRUN;
 
 	SCIP_CALL( SCIPcreate(&subscip) );
 	assert(subscip != NULL);
@@ -460,16 +468,77 @@ SCIP_RETCODE IPPricer(
 	threshold = pricerdata -> pi[pricerdata -> constraintssize - 1];
 	SCIP_CALL( setSubscipBestsolEventHdlrData(subscip, EVENTHDLR_NAME, threshold) );
 
-	bestsol = SCIPgetBestSol(scip);
+	bestsol = SCIPgetBestSol(subscip);
 	assert(bestsol != NULL);
 
-	solval = SCIPgetSolOrigObj(scip, bestsol);
+	solval = SCIPgetSolOrigObj(subscip, bestsol);
+
+	addvar = FALSE;
 
 	/* once we find a feasible solution, terminate */
-	if(threshold + solval >= 1.0)
+	if(SCIPisFeasGE(subscip, (threshold + solval), 1.0))
 	{
-		// TODO
+		// TODO: add the new find var
+		setArrayLength = 0;
+		SCIP_CALL( SCIPallocBufferArray(scip, &setArray, nedges) );
+
+		// create the new add var edge set
+		for(int i = 0; i < nedges; ++i)
+		{
+			if(SCIPisFeasEQ(
+				subscip, 
+				SCIPgetSolVal(subscip, bestsol, edge_vars[RepFind(branchInfo_consdata -> rep, i)]),
+				1.0))
+			{
+				setArray[setArrayLength] = i;
+				++setArrayLength;
+			}
+		}
+
+		// count the number of nodes covered by the var edge set
+		SCIP_CALL( SCIPallocBufferArray(scip, &varnodeset, nnodes) );
+		memset(varnodeset, 0, nnodes * sizeof(int));
+		newvarcoef = 0;
+		for(int i = 0; i < setArrayLength; ++i)
+		{
+			MY_EDGE e = MY_GRAPHgetEdge(graph, setArray[i]);
+			if(varnodeset[e.node1] == 0)
+			{
+				++newvarcoef;
+				varnodeset[e.node1] = 1;
+			}
+			if(varnodeset[e.node2] == 0)
+			{
+				++newvarcoef;
+				varnodeset[e.node2] = 1;
+			}
+		}
+
+		SCIPfreeBufferArray(scip, &varnodeset);
+
+		// add the new find var set
+		SCIP_CALL( SCIPprobdataADDVarSet(scip, setArray, setArrayLength, &newvaridx) );
+
+		// create the new find var
+		SCIP_CALL( SCIPcreateVar(scip, &var, NULL, 0.0, 1.0, newvarcoef, SCIP_VARTYPE_BINARY,
+				 TRUE, TRUE, NULL, NULL, NULL, NULL, (SCIP_VARDATA*)(size_t)newvaridx) );
+
+		// add new var
+		SCIP_CALL( SCIPprobdataADDVar(scip, var, newvaridx) );
+
+		// add the new var into problem
+		SCIP_CALL( SCIPaddPricedVar(scip, var, (threshold + solval)) );
+
+		SCIPfreeBufferArray(scip, &setArray);
+		addvar = TRUE;
 	}
+
+	if(addvar || SCIPgetStatus(subscip) == SCIP_STATUS_OPTIMAL)
+	{
+		(*result) = SCIP_SUCCESS;
+	}
+
+	SCIP_CALL( SCIPfree(&subscip) );
 
 	return SCIP_OKAY;
 }
@@ -538,8 +607,7 @@ SCIP_DECL_PRICERREDCOST(pricerRedcostEdgePartition)
 	*/
 	if(pricerdata -> nsetsfound == 0)
 	{
-		SCIP* subscip;
-		
+		SCIP_CALL( IPPricer(scip, pricerdata, result) );
 	}
 
 	return SCIP_OKAY;
