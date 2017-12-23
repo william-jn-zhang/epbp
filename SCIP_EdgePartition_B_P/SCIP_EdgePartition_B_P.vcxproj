@@ -123,6 +123,7 @@
     <ClCompile Include="probdata_edgepartition.cpp" />
     <ClCompile Include="reader_epp.cpp" />
     <ClCompile Include="test.cpp" />
+    <ClCompile Include="utils.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="branch_edge.h" />
@@ -133,6 +134,7 @@
     <ClInclude Include="pricer_edgepartition.h" />
     <ClInclude Include="probdata_edgepartition.h" />
     <ClInclude Include="reader_epp.h" />
+    <ClInclude Include="utils.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

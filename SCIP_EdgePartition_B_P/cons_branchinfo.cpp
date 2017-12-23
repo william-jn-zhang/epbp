@@ -259,12 +259,16 @@ SCIP_DECL_CONSDELETE(consDeleteBranchInfo)
 	assert((consdata != NULL) && (*consdata != NULL));
 	assert(strcmp(SCIPconshdlrGetName(conshdlr), CONSHDLR_NAME) == 0);
 
-	assert((*consdata) -> same_branch != NULL);
-	assert((*consdata) -> differ_branch != NULL);
-
-	SCIPfreeBlockMemoryArray(scip, &((*consdata) -> same_branch), 2 * ((*consdata) -> nsame));
-	SCIPfreeBlockMemoryArray(scip, &((*consdata) -> differ_branch), 2 * ((*consdata) -> ndiffer));
-
+	//assert((*consdata) -> same_branch != NULL);
+	//assert((*consdata) -> differ_branch != NULL);
+	if((*consdata) -> same_branch != NULL)
+	{
+		SCIPfreeBlockMemoryArray(scip, &((*consdata) -> same_branch), 2 * ((*consdata) -> nsame));
+	}
+	if((*consdata) -> differ_branch != NULL)
+	{
+		SCIPfreeBlockMemoryArray(scip, &((*consdata) -> differ_branch), 2 * ((*consdata) -> ndiffer));
+	}
 	SCIPfreeBlockMemoryArray(scip, &((*consdata) -> rep), (*consdata) -> nedges);
 
 	SCIPfreeBlockMemory(scip, consdata);

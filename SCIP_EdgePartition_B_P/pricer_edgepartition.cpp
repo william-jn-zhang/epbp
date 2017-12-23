@@ -16,6 +16,9 @@
 #include "scip/scipdefplugins.h"
 #include "probdata_edgepartition.h"
 
+#include "my_def.h"
+#include "utils.h"
+
 #include "scip/heur_actconsdiving.h"
 #include "scip/heur_coefdiving.h"
 #include "scip/heur_crossover.h"
@@ -169,7 +172,7 @@ SCIP_DECL_EVENTEXEC(subscipEventExecBestsol)
 
 	/* once we find a feasible solution, terminate */
 	//if(threshold + solval >= 1.0)
-	if(SCIPisFeasGT(scip, (threshold + solval), 1.0))
+	if(SCIPisFeasLE(scip, (threshold + solval), -1.0))
 	{
 		SCIP_CALL( SCIPinterruptSolve(scip) );
 	}
@@ -433,14 +436,10 @@ SCIP_RETCODE IPPricer(
 	}
 	SCIPfreeBufferArray(scip, &tmpvars);
 
-	SCIPfreeBufferArray(scip, &edge_vars);
-	SCIPfreeBufferArray(scip, &node_vars);
-	SCIPfreeBufferArray(scip, &edgeVarsObjCoef);
-	SCIPfreeBufferArray(scip, &edgeVarsSizeConsCoef);
-
 	/* finished build problem */
 
 	//add heuristic
+#ifdef SUBSCIP_USEHEUR
 	SCIP_CALL( SCIPincludeHeurActconsdiving(subscip) );
 	SCIP_CALL( SCIPincludeHeurCoefdiving(subscip) );
 	SCIP_CALL( SCIPincludeHeurCrossover(subscip) );
@@ -469,6 +468,7 @@ SCIP_RETCODE IPPricer(
 	SCIP_CALL( SCIPincludeHeurUndercover(subscip) );
 	SCIP_CALL( SCIPincludeHeurVeclendiving(subscip) );
 	SCIP_CALL( SCIPincludeHeurZirounding(subscip) );
+#endif
 
 	/* 
 	* include BESTSOL event handler 
@@ -478,6 +478,9 @@ SCIP_RETCODE IPPricer(
 	threshold = pricerdata -> pi[pricerdata -> constraintssize - 1];
 	SCIP_CALL( setSubscipBestsolEventHdlrData(subscip, EVENTHDLR_NAME, threshold) );
 
+	// solve subscip
+	SCIP_CALL( SCIPsolve(subscip) );
+
 	bestsol = SCIPgetBestSol(subscip);
 	assert(bestsol != NULL);
 
@@ -486,9 +489,12 @@ SCIP_RETCODE IPPricer(
 	addvar = FALSE;
 
 	/* once we find a feasible solution, terminate */
-	if(SCIPisFeasGE(subscip, (threshold + solval), 1.0))
+	if(SCIPisFeasLE(subscip, (threshold + solval), -1.0))
 	{
 		// TODO: add the new find var
+		setArray = NULL;
+		varnodeset = NULL;
+
 		setArrayLength = 0;
 		SCIP_CALL( SCIPallocBufferArray(scip, &setArray, nedges) );
 
@@ -538,6 +544,14 @@ SCIP_RETCODE IPPricer(
 
 		// add the new var into problem
 		SCIP_CALL( SCIPaddPricedVar(scip, var, (threshold + solval)) );
+		SCIP_CALL( SCIPchgVarUbLazy(scip, var, 1.0) );
+
+		// add the new variable to the corresponding constraints
+		for(int i = 0; i < setArrayLength; ++i)
+		{
+			SCIP_CALL( SCIPaddCoefSetppc(scip, pricerdata -> constraints[setArray[i]], var) );
+		}
+		SCIP_CALL( SCIPaddCoefKnapsack(scip, pricerdata -> constraints[pricerdata -> constraintssize -1], var, 1) );
 
 		SCIPfreeBufferArray(scip, &setArray);
 		addvar = TRUE;
@@ -549,6 +563,11 @@ SCIP_RETCODE IPPricer(
 	}
 
 	SCIP_CALL( SCIPfree(&subscip) );
+
+	SCIPfreeBufferArray(scip, &edge_vars);
+	SCIPfreeBufferArray(scip, &node_vars);
+	SCIPfreeBufferArray(scip, &edgeVarsObjCoef);
+	SCIPfreeBufferArray(scip, &edgeVarsSizeConsCoef);
 
 	return SCIP_OKAY;
 }
@@ -604,6 +623,9 @@ SCIP_DECL_PRICERREDCOST(pricerRedcostEdgePartition)
 	pricerdata -> pi[pricerdata -> constraintssize - 1] = SCIPgetDualsolKnapsack(scip, pricerdata -> constraints[pricerdata -> constraintssize -1]);
 	
 	pricerdata -> nsetsfound = 0;
+
+	// debug print
+	printArray("dual val", pricerdata -> pi, pricerdata -> constraintssize);
 
 	//pricer heuristic
 	if(pricerdata -> usePriceHeur)

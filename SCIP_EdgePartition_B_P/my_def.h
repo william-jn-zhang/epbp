@@ -8,5 +8,6 @@
 #define __MY_DEF__
 
 //#define TEST_READ
+//#define SUBSCIP_USEHEUR
 
 #endif
