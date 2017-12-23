@@ -625,7 +625,9 @@ SCIP_DECL_PRICERREDCOST(pricerRedcostEdgePartition)
 	pricerdata -> nsetsfound = 0;
 
 	// debug print
+#ifdef DEBUG_PRINT
 	printArray("dual val", pricerdata -> pi, pricerdata -> constraintssize);
+#endif
 
 	//pricer heuristic
 	if(pricerdata -> usePriceHeur)
@@ -641,6 +643,10 @@ SCIP_DECL_PRICERREDCOST(pricerRedcostEdgePartition)
 	{
 		SCIP_CALL( IPPricer(scip, pricerdata, result) );
 	}
+
+#ifdef DEBUG_PRINT
+	printf("%d", *result);
+#endif
 
 	return SCIP_OKAY;
 }
