@@ -9,6 +9,8 @@
 
 //#define TEST_READ
 //#define SUBSCIP_USEHEUR
-#define DEBUG_PRINT
+//#define DEBUG_PRINT
+#define SCIP_DEBUG
+//#define SUBSCIP_OUTPUT_ENABLE
 
 #endif

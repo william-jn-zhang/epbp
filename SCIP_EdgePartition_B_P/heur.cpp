@@ -142,6 +142,8 @@ SCIP_DECL_HEUREXEC(heurExecInit)
 
 	 int idx;
 
+	 SCIPdebugMessage("//-------------start init heurisitc\n");
+
 	 probdata = SCIPgetProbData(scip);
 	 assert(probdata != NULL);
 
@@ -246,6 +248,9 @@ SCIP_DECL_HEUREXEC(heurExecInit)
 	 assert(stored);
 
 	 *result = SCIP_FOUNDSOL;
+
+	 SCIPdebugMessage("//-------------finish init heurisitc\n");
+
 	 return SCIP_OKAY;
  }
 

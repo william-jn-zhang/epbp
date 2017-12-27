@@ -5,20 +5,18 @@
  * 
  */
 
-#include <iostream>
-
 #include "utils.h"
 
 using namespace std;
 
 
-void printArray(const char* title, double* arr, int size)
+void printArrayDouble(const char* title, double* arr, int size)
 {
-	cout << "<-------------" << title << "------------->" << endl;
+	SCIPdebugMessage("<-------------%s------------->\n", title);
 	for(int i = 0; i < size; ++i)
 	{
-		cout << arr[i] << ' ';
+		SCIPdebugMessage("%d ", arr[i]);
 	}
-	cout << endl;
+	SCIPdebugMessage("\n");
 	return;
 }

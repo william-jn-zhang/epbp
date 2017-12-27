@@ -16,7 +16,6 @@
 #include "scip/scipdefplugins.h"
 #include "probdata_edgepartition.h"
 
-#include "my_def.h"
 #include "utils.h"
 
 #include "scip/heur_actconsdiving.h"
@@ -85,6 +84,8 @@ SCIP_DECL_PRICERINITSOL(pricerInitSolEdgepartition)
 {
 	SCIP_PRICERDATA* pricerdata;
 	SCIP_PROBDATA*   probdata;
+
+	SCIPdebugMessage("Enter function: pricerInitSolEdgepartition \n");
 
 	assert(scip != NULL);
 	assert(pricer != NULL);
@@ -304,6 +305,10 @@ SCIP_RETCODE IPPricer(
 
 	SCIP_CALL( SCIPcreateProbBasic(subscip, "pricing") );
 	SCIP_CALL( SCIPsetObjsense(subscip, SCIP_OBJSENSE_MINIMIZE) );
+
+#ifndef SUBSCIP_OUTPUT_ENABLE
+	SCIP_CALL( SCIPsetIntParam(subscip, "display/verblevel", 0) );
+#endif
 
 	edge_vars = NULL;
 	node_vars = NULL;
@@ -578,6 +583,8 @@ SCIP_DECL_PRICERREDCOST(pricerRedcostEdgePartition)
 {
 	SCIP_PRICERDATA* pricerdata;
 
+	SCIPdebugMessage("Enter function: pricerRedcostEdgePartition \n");
+
 	assert(scip != NULL);
 	assert(pricer != NULL);
 
@@ -604,14 +611,14 @@ SCIP_DECL_PRICERREDCOST(pricerRedcostEdgePartition)
 		pricerdata -> bbnode = SCIPgetCurrentNode(scip);
 	}
 
-	if(pricerdata -> noderounds == 0)
-	{
-		/* maxrounds reached, pricing interrupted */
-		*result = SCIP_DIDNOTRUN;
-		*lowerbound = pricerdata -> lowerbound;
+	//if(pricerdata -> noderounds == 0)
+	//{
+	//	/* maxrounds reached, pricing interrupted */
+	//	*result = SCIP_DIDNOTRUN;
+	//	*lowerbound = pricerdata -> lowerbound;
 
-		return SCIP_OKAY;
-	}
+	//	return SCIP_OKAY;
+	//}
 
 	*result = SCIP_SUCCESS;
 
@@ -625,8 +632,8 @@ SCIP_DECL_PRICERREDCOST(pricerRedcostEdgePartition)
 	pricerdata -> nsetsfound = 0;
 
 	// debug print
-#ifdef DEBUG_PRINT
-	printArray("dual val", pricerdata -> pi, pricerdata -> constraintssize);
+#ifdef SCIP_DEBUG
+	printArrayDouble("dual val", pricerdata -> pi, pricerdata -> constraintssize);
 #endif
 
 	//pricer heuristic
@@ -641,7 +648,9 @@ SCIP_DECL_PRICERREDCOST(pricerRedcostEdgePartition)
 	*/
 	if(pricerdata -> nsetsfound == 0)
 	{
+		SCIPdebugMessage("start IP pricer\n");
 		SCIP_CALL( IPPricer(scip, pricerdata, result) );
+		SCIPdebugMessage("finish IP pricer\n");
 	}
 
 #ifdef DEBUG_PRINT
@@ -658,6 +667,7 @@ SCIP_RETCODE SCIPincludePricerEdgePartition(
 	SCIP_PRICERDATA* pricerdata;
 	SCIP_PRICER* pricer;
 	assert(scip != NULL);
+	SCIPdebugMessage("include pricer\n");
 
 	pricerdata = NULL;
 	SCIP_CALL( SCIPallocBlockMemory(scip, &pricerdata) );

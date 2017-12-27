@@ -9,6 +9,7 @@
 #define __SCIP_PRICER_EDGEPARTITION_H__
 
 #include "probdata_edgepartition.h"
+#include "my_def.h"
 
 #define PRICER_NAME            "pricer_edgeparititon"
 #define PRICER_DESC            "pricer for edge partition"
