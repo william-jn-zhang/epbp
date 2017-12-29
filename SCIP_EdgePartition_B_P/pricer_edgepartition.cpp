@@ -55,30 +55,6 @@
 	DIDNOTRUN
 };*/
 
-struct SCIP_PricerData
-{
-	/* control infomation */
-	SCIP*                                scip;                   // scip data structure
-	int                                  maxvarsround;           // the maximum number of variable created in each round
-	int                                  oldmaxvarsround;        // 
-
-	SCIP_NODE*                           bbnode;                 // the current b&b tree node, used for limiting the number of pricing rounds
-	int                                  noderounds;             // number of remaining pricing round in the current node
-	int                                  maxroundroot; //user set// the maximum pricing round in the root node
-	int                                  maxroundnode; //user set// maximum number of pricing rounds in the B&B-nodes, -1 for infinity, attention: positive value may lead to a non-optimal solution
-	SCIP_Real                            lowerbound;             // lower bound computed by the pricer
-
-	int                                  nsetsfound;             // number of improving set found in the current round
-
-	SCIP_Bool                            usePriceHeur; //user set// using the heuristic to solve the price problem
-
-	/* data */
-	SCIP_Real*                           pi;                     // dual variable value
-	int                                  constraintssize;        // number of constraints
-	SCIP_CONS**                          constraints;            // a reference to the probdata -> constraints
-
-};
-
 static
 SCIP_DECL_PRICERINITSOL(pricerInitSolEdgepartition)
 {
