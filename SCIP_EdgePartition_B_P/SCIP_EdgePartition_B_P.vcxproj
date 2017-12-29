@@ -129,6 +129,7 @@
     <ClInclude Include="branch_edge.h" />
     <ClInclude Include="cons_branchinfo.h" />
     <ClInclude Include="heur.h" />
+    <ClInclude Include="ip_pricer.h" />
     <ClInclude Include="my_def.h" />
     <ClInclude Include="my_graph.h" />
     <ClInclude Include="pricer_edgepartition.h" />
