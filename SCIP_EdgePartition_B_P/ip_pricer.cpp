@@ -15,16 +15,259 @@
 
 struct IP_PRICER_PROBDATA
 {
+	SCIP* masterscip; // master scip data structure
+
 	SCIP_VAR** edge_vars; // edge variables array
 	SCIP_VAR** node_vars; // node variables array
 
 	int nedges;   // number of edges
 	int nnodes;   // number of nodes
+
+	SCIP_PRICERDATA* pricedata;
+
+	/* control field */
+	
+	int nVarAdd; // number of priced variables have been added in each IP pricer round
+	int maxNVarAdd; // the maximum number of priced variables add in each IP pricer round
+	SCIP_Bool addvar;
+
+	SCIP_STATUS status; // the exit status of the ip pricer
 };
+
+
+static
+SCIP_RETCODE addNewPricedVar(
+	SCIP* subscip,
+	SCIP_SOL* bestsol
+)
+{
+	IP_PRICER_PROBDATA* subprobdata;
+	SCIP* scip;  // master scip
+	SCIP_Real solval;
+	SCIP_CONSDATA* branchInfo_consdata;
+	MY_GRAPH* graph;
+	SCIP_PRICERDATA* pricerdata;
+	double threshold;
+
+	int nedges;
+	int nnodes;
+	int newvarcoef;
+
+	int* setArray;
+	int* varnodeset;
+	int setArrayLength;
+
+	SCIP_VAR** edge_vars;
+	SCIP_VAR** node_vars;
+	SCIP_VAR* var;
+	int newvaridx;
+
+	assert(subscip != NULL);
+	assert(bestsol != NULL);
+
+	subprobdata = (IP_PRICER_PROBDATA*)SCIPgetProbData(subscip);
+	assert(subprobdata != NULL);
+	scip = subprobdata -> masterscip;
+	assert(scip != NULL);
+
+	nedges = subprobdata -> nedges;
+	nnodes = subprobdata -> nnodes;
+	edge_vars = subprobdata -> edge_vars;
+	node_vars = subprobdata -> node_vars;
+	
+	pricerdata = subprobdata -> pricedata;
+
+	threshold = pricerdata -> pi[pricerdata -> constraintssize - 1];
+
+	branchInfo_consdata = SCIPconsGetData(SCIPconsGetActiveBranchInfoCons(scip));
+	graph = SCIPgetProbData(scip) -> orgngraph;
+
+
+
+	subprobdata -> addvar = FALSE;
+
+	solval = SCIPgetSolOrigObj(subscip, bestsol);
+
+	/* once we find a feasible solution, terminate */
+	// TODO: add the new find var
+	setArray = NULL;
+	varnodeset = NULL;
+
+	setArrayLength = 0;
+	SCIP_CALL( SCIPallocBufferArray(scip, &setArray, nedges) );
+
+	// create the new add var edge set
+	for(int i = 0; i < nedges; ++i)
+	{
+		if(SCIPisFeasEQ(
+			subscip, 
+			SCIPgetSolVal(subscip, bestsol, edge_vars[RepFind(branchInfo_consdata -> rep, i)]),
+			1.0))
+		{
+			setArray[setArrayLength] = i;
+			++setArrayLength;
+		}
+	}
+
+	// count the number of nodes covered by the var edge set
+	SCIP_CALL( SCIPallocBufferArray(scip, &varnodeset, nnodes) );
+	memset(varnodeset, 0, nnodes * sizeof(int));
+	newvarcoef = 0;
+	for(int i = 0; i < setArrayLength; ++i)
+	{
+		MY_EDGE e = MY_GRAPHgetEdge(graph, setArray[i]);
+		if(varnodeset[e.node1] == 0)
+		{
+			++newvarcoef;
+			varnodeset[e.node1] = 1;
+		}
+		if(varnodeset[e.node2] == 0)
+		{
+			++newvarcoef;
+			varnodeset[e.node2] = 1;
+		}
+	}
+
+	SCIPfreeBufferArray(scip, &varnodeset);
+
+	// add the new find var set
+	SCIP_CALL( SCIPprobdataADDVarSet(scip, setArray, setArrayLength, &newvaridx) );
+
+	// create the new find var
+	SCIP_CALL( SCIPcreateVar(scip, &var, NULL, 0.0, 1.0, newvarcoef, SCIP_VARTYPE_BINARY,
+				TRUE, TRUE, NULL, NULL, NULL, NULL, (SCIP_VARDATA*)(size_t)newvaridx) );
+
+	// add new var
+	SCIP_CALL( SCIPprobdataADDVar(scip, var, newvaridx) );
+
+	// add the new var into problem
+	SCIP_CALL( SCIPaddPricedVar(scip, var, (threshold + solval)) );
+	SCIP_CALL( SCIPchgVarUbLazy(scip, var, 1.0) );
+
+	// add the new variable to the corresponding constraints
+	for(int i = 0; i < setArrayLength; ++i)
+	{
+		SCIP_CALL( SCIPaddCoefSetppc(scip, pricerdata -> constraints[setArray[i]], var) );
+	}
+	SCIP_CALL( SCIPaddCoefKnapsack(scip, pricerdata -> constraints[pricerdata -> constraintssize -1], var, 1) );
+
+	SCIPfreeBufferArray(scip, &setArray);
+
+	subprobdata -> nVarAdd += 1;
+	subprobdata -> addvar = TRUE;
+}
+
+/* <start> subscip BESTSOL event handler code block */
+#define EVENTHDLR_NAME         "bestsol"
+#define EVENTHDLR_DESC         "event handler for best solutions found"
+
+/* init method of BESTSOL event handler */
+static
+SCIP_DECL_EVENTINIT(subscipEventInitBestsol)
+{
+	assert(scip != NULL);
+	assert(eventhdlr != NULL);
+	assert(strcmp(SCIPeventhdlrGetName(eventhdlr), EVENTHDLR_NAME) == 0);
+
+	SCIP_CALL( SCIPcatchEvent(scip, SCIP_EVENTTYPE_BESTSOLFOUND, eventhdlr, NULL, NULL) );
+	return SCIP_OKAY;
+}
+
+/* exit method of BESTSOL event handler */
+static
+SCIP_DECL_EVENTEXIT(subscipEventExitBestsol)
+{
+	assert(scip != NULL);
+	assert(eventhdlr != NULL);
+	assert(strcmp(SCIPeventhdlrGetName(eventhdlr), EVENTHDLR_NAME) == 0);
+
+	SCIP_CALL( SCIPdropEvent(scip, SCIP_EVENTTYPE_BESTSOLFOUND, eventhdlr, NULL, -1) );
+	return SCIP_OKAY;
+}
+
+/* execute method of BESTSOL event handler */
+static
+SCIP_DECL_EVENTEXEC(subscipEventExecBestsol)
+{
+	SCIP_SOL* bestsol;
+	SCIP_Real solval;
+	SCIP_Real threshold;
+	IP_PRICER_PROBDATA* subprobdata;
+
+	assert(scip != NULL);
+	assert(eventhdlr != NULL);
+	assert(strcmp(SCIPeventhdlrGetName(eventhdlr), EVENTHDLR_NAME) == 0);
+	assert(event != NULL);
+	assert(SCIPeventGetType(event) == SCIP_EVENTTYPE_BESTSOLFOUND);
+
+	bestsol = SCIPgetBestSol(scip);
+	threshold = (double)(size_t)SCIPeventhdlrGetData(eventhdlr);
+	assert(bestsol != NULL);
+
+	subprobdata = (IP_PRICER_PROBDATA*)SCIPgetProbData(scip);
+
+	solval = SCIPgetSolOrigObj(scip, bestsol);
+
+	/* once we find a feasible solution, terminate */
+	//if(threshold + solval >= 1.0)
+	if(SCIPisFeasLE(scip, (threshold + solval), -1.0))
+	{
+		if(subprobdata -> nVarAdd < subprobdata -> maxNVarAdd)
+		{
+			addNewPricedVar(scip, bestsol);
+		}
+		if(subprobdata -> nVarAdd == subprobdata -> maxNVarAdd || subprobdata -> addvar == FALSE || SCIPgetStatus(scip) == SCIP_STATUS_OPTIMAL)
+		{
+			SCIP_CALL( SCIPinterruptSolve(scip) );
+		}
+	}
+
+	return SCIP_OKAY;
+}
+
+static
+SCIP_RETCODE subscipIncludeEventHdlrBestsol(
+	SCIP* subscip
+	)
+{
+	SCIP_EVENTHDLRDATA* eventhdlrdata;
+	SCIP_EVENTHDLR* eventhdlr;
+	eventhdlr = NULL;
+	eventhdlrdata = NULL;
+
+	SCIP_CALL( SCIPincludeEventhdlrBasic(subscip, &eventhdlr, EVENTHDLR_NAME, EVENTHDLR_DESC, subscipEventExecBestsol, NULL) );
+
+	SCIP_CALL( SCIPsetEventhdlrInit(subscip, eventhdlr, subscipEventInitBestsol) );
+	SCIP_CALL( SCIPsetEventhdlrExit(subscip, eventhdlr, subscipEventExitBestsol) );
+
+	return SCIP_OKAY;
+}
+
+static
+SCIP_RETCODE setSubscipBestsolEventHdlrData(
+	SCIP*          subscip,
+	const char*    eventhdlrName,
+	double         threshold
+)
+{
+	SCIP_EVENTHDLR* eventhdlr;
+	assert(subscip != NULL);
+	eventhdlr = SCIPfindEventhdlr(subscip, eventhdlrName);
+	assert(eventhdlr != NULL);
+
+	SCIPeventhdlrSetData(eventhdlr, (SCIP_EVENTHDLRDATA*)(size_t)threshold);
+
+	return SCIP_OKAY;
+}
+
+
+/* <end> subscip BESTSOL event handler code block */
+
 
 
 SCIP_RETCODE createIpPricerProblem(
 	SCIP**                scip,        // the created subscip instance
+	SCIP*                 masterscip,  // the master scip instance
 	SCIP_PRICERDATA*      pricerdata,  // pricer information
 	SCIP_PROBDATA*        probdata,    // the probdata of master problem
 	SCIP_CONSDATA*        branchInfo_consdata // the consData of branch_info constraint
@@ -56,6 +299,7 @@ SCIP_RETCODE createIpPricerProblem(
 	long long*   tmpvals1;
 	int tmpsize;
 	long long    capacity;
+	double threshold;
 
 	SCIP_Bool addvar;
 	int*      setArray;
@@ -106,6 +350,10 @@ SCIP_RETCODE createIpPricerProblem(
 
 	sub_probdata -> edge_vars = edge_vars;
 	sub_probdata -> node_vars = node_vars;
+	sub_probdata -> nedges = nedges;
+	sub_probdata -> nnodes = nnodes;
+	sub_probdata -> masterscip = masterscip;
+	sub_probdata -> pricedata = pricerdata;
 
 	SCIP_CALL( SCIPallocBufferArray(subscip, &edgeVarsObjCoef, nedges) );
 	SCIP_CALL( SCIPallocBufferArray(subscip, &edgeVarsSizeConsCoef, nedges) );
@@ -254,6 +502,10 @@ SCIP_RETCODE createIpPricerProblem(
 	SCIP_CALL( SCIPincludeHeurZirounding(subscip) );
 #endif
 
+	SCIP_CALL( subscipIncludeEventHdlrBestsol(subscip) );
+	threshold = pricerdata -> pi[pricerdata -> constraintssize - 1];
+	SCIP_CALL( setSubscipBestsolEventHdlrData(subscip, EVENTHDLR_NAME, threshold) );
+
 	SCIPfreeBufferArray(subscip, &edgeVarsObjCoef);
 	SCIPfreeBufferArray(subscip, &edgeVarsSizeConsCoef);
 
@@ -268,12 +520,13 @@ SCIP_RETCODE changIpPricerObjCoef(
 )
 {
 	//SCIPchgVarObj
-	SCIP_Real* edgeVarsObjCoef; // the coefficent of edge variables in the objective
+	SCIP_Real* varsObjCoef; // the coefficent of edge variables in the objective
 	IP_PRICER_PROBDATA* sub_probdata;
 	int nedges;
 	int nnodes;
 	SCIP_VAR** edge_vars;
 	SCIP_VAR** node_vars;
+	SCIP_VAR** vars;
 
 	assert(subscip != NULL);
 	assert(pricerdata != NULL);
@@ -285,25 +538,34 @@ SCIP_RETCODE changIpPricerObjCoef(
 	edge_vars = sub_probdata -> edge_vars;
 	node_vars = sub_probdata -> node_vars;
 
-	edgeVarsObjCoef = NULL;
-	SCIP_CALL( SCIPallocBufferArray(subscip, &edgeVarsObjCoef, nedges) );
-	memset(edgeVarsObjCoef, 0, nedges * sizeof(SCIP_Real));
+	varsObjCoef = NULL;
+	vars = NULL;
+	SCIP_CALL( SCIPallocBufferArray(subscip, &varsObjCoef, nedges + nnodes) );
+	SCIP_CALL( SCIPallocBufferArray(subscip, &vars, nedges + nnodes) );
+	memset(varsObjCoef, 0, (nedges + nnodes) * sizeof(SCIP_Real));
 
 	// construct coefficents
 	for(int i = 0; i < nedges; ++i)
 	{
-		edgeVarsObjCoef[RepFind(branchInfo_consdata -> rep, i)] += pricerdata -> pi[i];
+		varsObjCoef[RepFind(branchInfo_consdata -> rep, i)] -= pricerdata -> pi[i];
+		vars[i] = edge_vars[i];
+	}
+
+	// append the node var coef to the edgeVarsObjCoef
+
+	for(int i = 0; i < nnodes; ++i)
+	{
+		varsObjCoef[nedges + i] = 1.0;
+		vars[nedges + i] = node_vars[i];
 	}
 
 	SCIP_CALL( SCIPfreeReoptSolve(subscip) );
 
 	// change the obj val of each edge variable
-	for(int i = 0; i < nedges; ++i)
-	{
-		SCIP_CALL( SCIPchgVarObj(subscip, edge_vars[i], -edgeVarsObjCoef[i]) );
-	}
+	SCIP_CALL( SCIPchgReoptObjective(subscip, SCIP_OBJSENSE_MINIMIZE, vars, varsObjCoef, nedges + nnodes) );
 
-	
+	SCIPfreeBufferArray(subscip, &varsObjCoef);
+	SCIPfreeBufferArray(subscip, &vars);
 
 	return SCIP_OKAY;
 }

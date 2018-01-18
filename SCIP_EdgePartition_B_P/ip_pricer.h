@@ -16,6 +16,7 @@
 extern
 SCIP_RETCODE createIpPricerProblem(
 	SCIP**                subscip,     // the created subscip instance
+	SCIP*                 scip,        // the master scip instance
 	SCIP_PRICERDATA*      pricerdata,  // pricer information, contain the dual val of master problem
 	SCIP_PROBDATA*        master_probdata, // the probdata of master problem
 	SCIP_CONSDATA*        branchInfo_consdata // the consData of branch_info constraint
