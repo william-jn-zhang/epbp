@@ -30,7 +30,7 @@ struct SCIP_PricerData
 	int                                  maxroundnode; //user set// maximum number of pricing rounds in the B&B-nodes, -1 for infinity, attention: positive value may lead to a non-optimal solution
 	SCIP_Real                            lowerbound;             // lower bound computed by the pricer
 
-	int                                  nsetsfound;             // number of improving set found in the current round
+//	int                                  nsetsfound;             // number of improving set found in the current round
 
 	SCIP_Bool                            usePriceHeur; //user set// using the heuristic to solve the price problem
 
@@ -39,6 +39,8 @@ struct SCIP_PricerData
 	int                                  constraintssize;        // number of constraints
 	SCIP_CONS**                          constraints;            // a reference to the probdata -> constraints
 
+	/* subproblem ip solver */
+	SCIP*                                subscip;                // scip data structure of the sub problem
 };
 
 extern
