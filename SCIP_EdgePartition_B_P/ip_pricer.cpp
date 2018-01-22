@@ -155,6 +155,10 @@ SCIP_RETCODE addNewPricedVar(
 
 	subprobdata -> nVarAdd += 1;
 	subprobdata -> addvar = TRUE;
+
+
+	SCIPfreeBufferArray(scip, &setArray);
+	SCIPfreeBufferArray(scip, &varnodeset);
 }
 
 /* <start> subscip BESTSOL event handler code block */

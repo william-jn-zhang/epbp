@@ -664,3 +664,4 @@ SCIP_RETCODE SCIPincludePricerEdgePartition(
 
 	return SCIP_OKAY;
 }
+/*back up*/
