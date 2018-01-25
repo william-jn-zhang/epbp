@@ -29,10 +29,25 @@ struct IP_PRICER_PROBDATA
 	
 	int nVarAdd; // number of priced variables have been added in each IP pricer round
 	int maxNVarAdd; // the maximum number of priced variables add in each IP pricer round
-	SCIP_Bool addvar;
+	//SCIP_Bool addvar;
 
-	SCIP_STATUS status; // the exit status of the ip pricer
+	//SCIP_STATUS status; // the exit status of the ip pricer
 };
+
+static
+SCIP_RETCODE setAddedVar(IP_PRICER_PROBDATA* sub_probdata, SCIP_Bool addedvar)
+{
+	sub_probdata -> pricedata -> addedvar = addedvar;
+
+	return SCIP_OKAY;
+}
+
+//static
+//SCIP_RETCODE setStatus(IP_PRICER_PROBDATA* sub_probdata, SCIP_STATUS status)
+//{
+//	sub_probdata -> pricedata -> status = status;
+//	return SCIP_OKAY;
+//}
 
 
 static
@@ -62,6 +77,8 @@ SCIP_RETCODE addNewPricedVar(
 	SCIP_VAR* var;
 	int newvaridx;
 
+	SCIPdebugMessage("Enter function: addNewPricedVar \n");
+
 	assert(subscip != NULL);
 	assert(bestsol != NULL);
 
@@ -83,8 +100,6 @@ SCIP_RETCODE addNewPricedVar(
 	graph = SCIPgetProbData(scip) -> orgngraph;
 
 
-
-	subprobdata -> addvar = FALSE;
 
 	solval = SCIPgetSolOrigObj(subscip, bestsol);
 
@@ -154,11 +169,10 @@ SCIP_RETCODE addNewPricedVar(
 	SCIPfreeBufferArray(scip, &setArray);
 
 	subprobdata -> nVarAdd += 1;
-	subprobdata -> addvar = TRUE;
+	setAddedVar(subprobdata, TRUE);
 
 
-	SCIPfreeBufferArray(scip, &setArray);
-	SCIPfreeBufferArray(scip, &varnodeset);
+	return SCIP_OKAY;
 }
 
 /* <start> subscip BESTSOL event handler code block */
@@ -218,9 +232,9 @@ SCIP_DECL_EVENTEXEC(subscipEventExecBestsol)
 	{
 		if(subprobdata -> nVarAdd < subprobdata -> maxNVarAdd)
 		{
-			addNewPricedVar(scip, bestsol);
+			SCIP_CALL( addNewPricedVar(scip, bestsol) );
 		}
-		if(subprobdata -> nVarAdd == subprobdata -> maxNVarAdd || subprobdata -> addvar == FALSE || SCIPgetStatus(scip) == SCIP_STATUS_OPTIMAL)
+		if(subprobdata -> nVarAdd == subprobdata -> maxNVarAdd || subprobdata -> pricedata -> addedvar == FALSE || SCIPgetStatus(scip) == SCIP_STATUS_OPTIMAL)
 		{
 			SCIP_CALL( SCIPinterruptSolve(scip) );
 		}
@@ -315,6 +329,8 @@ SCIP_RETCODE createIpPricerProblem(
 
 	///////////////////////////////////
 
+	SCIPdebugMessage("Enter function: createIpPricerProblem \n");
+
 	assert(pricerdata != NULL);
 
 	SCIP_CALL(SCIPcreate(scip));
@@ -336,6 +352,7 @@ SCIP_RETCODE createIpPricerProblem(
 	SCIP_CALL( SCIPenableReoptimization(subscip, TRUE) );
 
 	/* create and set sub problem probdata */
+	sub_probdata = NULL;
 	SCIP_CALL( SCIPallocBuffer(subscip, &sub_probdata) );
 	SCIP_CALL( SCIPsetProbData(subscip, (SCIP_PROBDATA*)sub_probdata) );
 
@@ -358,6 +375,11 @@ SCIP_RETCODE createIpPricerProblem(
 	sub_probdata -> nnodes = nnodes;
 	sub_probdata -> masterscip = masterscip;
 	sub_probdata -> pricedata = pricerdata;
+
+	sub_probdata -> nVarAdd = 0;
+	sub_probdata -> maxNVarAdd = 10;
+
+	setAddedVar(sub_probdata, FALSE);
 
 	SCIP_CALL( SCIPallocBufferArray(subscip, &edgeVarsObjCoef, nedges) );
 	SCIP_CALL( SCIPallocBufferArray(subscip, &edgeVarsSizeConsCoef, nedges) );
@@ -447,9 +469,9 @@ SCIP_RETCODE createIpPricerProblem(
 			++tmpsize;
 		}
 	}
-	assert(tmpsize == nedgevars);
+	//assert(tmpsize == nedgevars);
 	capacity = ceil((double)(probdata -> alpha) * nedges / (probdata -> nparts));
-	SCIP_CALL( SCIPcreateConsBasicKnapsack(subscip, &cons, "size_cons", nedgevars, tmpvars, tmpvals1, capacity) );
+	SCIP_CALL( SCIPcreateConsBasicKnapsack(subscip, &cons, "size_cons", tmpsize, tmpvars, tmpvals1, capacity) );
 	SCIP_CALL( SCIPaddCons(subscip, cons) );
 	SCIP_CALL( SCIPreleaseCons(subscip, &cons) );
 	SCIPfreeBufferArray(subscip, &tmpvars);
@@ -532,6 +554,8 @@ SCIP_RETCODE changIpPricerObjCoef(
 	SCIP_VAR** node_vars;
 	SCIP_VAR** vars;
 
+	SCIPdebugMessage("Enter function: changIpPricerObjCoef \n");
+
 	assert(subscip != NULL);
 	assert(pricerdata != NULL);
 	assert(branchInfo_consdata != NULL);
@@ -541,6 +565,8 @@ SCIP_RETCODE changIpPricerObjCoef(
 	nnodes = sub_probdata -> nnodes;
 	edge_vars = sub_probdata -> edge_vars;
 	node_vars = sub_probdata -> node_vars;
+
+	setAddedVar(sub_probdata, FALSE);
 
 	varsObjCoef = NULL;
 	vars = NULL;

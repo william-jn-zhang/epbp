@@ -76,7 +76,7 @@ SCIP_DECL_PRICERINITSOL(pricerInitSolEdgepartition)
 	assert(probdata != NULL);
 
 	pricerdata -> constraintssize = probdata -> constraintssize;
-	pricerdata -> constraints = pricerdata -> constraints;
+	pricerdata -> constraints = probdata -> constraints;
 
 	SCIP_CALL( SCIPallocBlockMemoryArray(scip, &(pricerdata -> pi), probdata -> constraintssize) );
 
@@ -560,13 +560,15 @@ SCIP_DECL_PRICERREDCOST(pricerRedcostEdgePartition)
 	SCIP* subscip;
 	SCIP_PRICERDATA* pricerdata;
 
-	SCIPdebugMessage("Enter function: pricerRedcostEdgePartition \n");
+	//SCIPdebugMessage("Enter function: pricerRedcostEdgePartition \n");
 
 	assert(scip != NULL);
 	assert(pricer != NULL);
 
 	pricerdata = SCIPpricerGetData(pricer);
 	assert(pricerdata != NULL);
+
+	*result = SCIP_DIDNOTRUN;
 
 	/* get the dual variable value */
 	for(int i = 0; i < pricerdata -> constraintssize - 1; ++i)
@@ -582,6 +584,9 @@ SCIP_DECL_PRICERREDCOST(pricerRedcostEdgePartition)
 
 	if( pricerdata -> bbnode != SCIPgetCurrentNode(scip))
 	{
+		if(pricerdata -> subscip != NULL)
+			SCIP_CALL( SCIPfree(&(pricerdata -> subscip)) );
+
 		SCIP_CALL( createIpPricerProblem(&(pricerdata -> subscip), scip, pricerdata, SCIPgetProbData(scip), SCIPconsGetData(SCIPconsGetActiveBranchInfoCons(scip))) );
 		pricerdata -> bbnode = SCIPgetCurrentNode(scip);
 	}
@@ -592,16 +597,13 @@ SCIP_DECL_PRICERREDCOST(pricerRedcostEdgePartition)
 
 	// solve scip subproblem
 
-	SCIP_CALL( SCIPsolve(subscip) );
-
 	subscip = pricerdata -> subscip;
 
 	assert(subscip != NULL);
 
-	*result = SCIP_SUCCESS;
+	SCIPdebugMessage("starting solving sub-problem \n");
 
-	
-	
+	SCIP_CALL( SCIPsolve(subscip) );
 
 	// debug print
 #ifdef SCIP_DEBUG
@@ -611,6 +613,11 @@ SCIP_DECL_PRICERREDCOST(pricerRedcostEdgePartition)
 #ifdef DEBUG_PRINT
 	printf("%d", *result);
 #endif
+	
+	if(pricerdata -> addedvar || SCIPgetStatus(subscip) == SCIP_STATUS_OPTIMAL)
+	{
+		*result = SCIP_SUCCESS;
+	}
 
 	return SCIP_OKAY;
 }

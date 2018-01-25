@@ -41,6 +41,11 @@ struct SCIP_PricerData
 
 	/* subproblem ip solver */
 	SCIP*                                subscip;                // scip data structure of the sub problem
+
+	/* subproblem status */
+	SCIP_Bool                            addedvar;               // whether there is new variable have been found and added
+
+//	SCIP_STATUS                          status;                 // the exit status of the ip pricer
 };
 
 extern
