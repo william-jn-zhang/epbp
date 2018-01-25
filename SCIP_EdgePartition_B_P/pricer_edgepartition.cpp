@@ -75,6 +75,8 @@ SCIP_DECL_PRICERINITSOL(pricerInitSolEdgepartition)
 	probdata = SCIPgetProbData(scip);
 	assert(probdata != NULL);
 
+	pricerdata -> constraintssize = probdata -> constraintssize;
+	pricerdata -> constraints = pricerdata -> constraints;
 
 	SCIP_CALL( SCIPallocBlockMemoryArray(scip, &(pricerdata -> pi), probdata -> constraintssize) );
 
