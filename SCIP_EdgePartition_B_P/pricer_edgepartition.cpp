@@ -573,6 +573,10 @@ SCIP_DECL_PRICERREDCOST(pricerRedcostEdgePartition)
 	}
 	pricerdata -> pi[pricerdata -> constraintssize - 1] = SCIPgetDualsolKnapsack(scip, pricerdata -> constraints[pricerdata -> constraintssize -1]);
 
+	/* 
+	* using exact method (integer programming) to prove the optimal lp-sol of current master problem 
+	* of find a new variable which can improve the current master problem
+	*/
 
 	if( pricerdata -> bbnode != SCIPgetCurrentNode(scip))
 	{
@@ -601,11 +605,6 @@ SCIP_DECL_PRICERREDCOST(pricerRedcostEdgePartition)
 #ifdef SCIP_DEBUG
 	printArrayDouble("dual val", pricerdata -> pi, pricerdata -> constraintssize);
 #endif
-
-	/* 
-	* using exact method (integer programming) to prove the optimal lp-sol of current master problem 
-	* of find a new variable which can improve the current master problem
-	*/
 
 #ifdef DEBUG_PRINT
 	printf("%d", *result);
