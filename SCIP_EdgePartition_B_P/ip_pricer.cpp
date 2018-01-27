@@ -15,7 +15,7 @@
 
 struct IP_PRICER_PROBDATA
 {
-	SCIP* masterscip; // master scip data structure
+	SCIP* masterscip; // reference to master scip data structure
 
 	SCIP_VAR** edge_vars; // edge variables array
 	SCIP_VAR** node_vars; // node variables array
@@ -23,7 +23,7 @@ struct IP_PRICER_PROBDATA
 	int nedges;   // number of edges
 	int nnodes;   // number of nodes
 
-	SCIP_PRICERDATA* pricedata;
+	SCIP_PRICERDATA* pricedata; // reference to pricedata data structure
 
 	/* control field */
 	
@@ -33,6 +33,46 @@ struct IP_PRICER_PROBDATA
 
 	//SCIP_STATUS status; // the exit status of the ip pricer
 };
+
+/* free the data probdata data structure of the subscip problem */
+static
+SCIP_RETCODE freeSubProbdata(
+	SCIP*                   subscip,     // the subscip data structure
+	IP_PRICER_PROBDATA**     subprobdata  // the sub problem data 
+)
+{
+	assert(subscip != NULL);
+	assert(subprobdata != NULL);
+
+	// release all edge variables
+	for(int i = 0; i < (*subprobdata) -> nedges; ++i)
+	{
+		SCIP_CALL( SCIPreleaseVar(subscip, &(*subprobdata) -> edge_vars[i]) );
+	}
+
+	// release all node variables
+	for(int i = 0; i < (*subprobdata) -> nnodes; ++i)
+	{
+		SCIP_CALL( SCIPreleaseVar(subscip, &(*subprobdata) -> node_vars[i]) );
+	}
+	
+	SCIPfreeBlockMemoryArray(subscip, &((*subprobdata) -> edge_vars), (*subprobdata) -> nedges);
+	SCIPfreeBlockMemoryArray(subscip, &((*subprobdata) -> node_vars), (*subprobdata) -> nnodes);
+
+	SCIPfreeBlockMemory(subscip, subprobdata);
+
+	return SCIP_OKAY;
+}
+
+static
+SCIP_DECL_PROBDELORIG(subprobdataDelOrig)
+{
+	SCIPdebugMsg(scip, "free original problem data\n");
+
+	SCIP_CALL( freeSubProbdata(scip, (IP_PRICER_PROBDATA**)probdata) );
+
+	return SCIP_OKAY;
+}
 
 static
 SCIP_RETCODE setAddedVar(IP_PRICER_PROBDATA* sub_probdata, SCIP_Bool addedvar)
@@ -345,6 +385,8 @@ SCIP_RETCODE createIpPricerProblem(
 	SCIP_CALL( SCIPcreateProbBasic(subscip, "pricing") );
 	SCIP_CALL( SCIPsetObjsense(subscip, SCIP_OBJSENSE_MINIMIZE) );
 
+	SCIP_CALL( SCIPsetProbDelorig(subscip, subprobdataDelOrig) );
+
 #ifndef SUBSCIP_OUTPUT_ENABLE
 	SCIP_CALL( SCIPsetIntParam(subscip, "display/verblevel", 0) );
 #endif
@@ -353,7 +395,7 @@ SCIP_RETCODE createIpPricerProblem(
 
 	/* create and set sub problem probdata */
 	sub_probdata = NULL;
-	SCIP_CALL( SCIPallocBuffer(subscip, &sub_probdata) );
+	SCIP_CALL( SCIPallocBlockMemory(subscip, &sub_probdata) );
 	SCIP_CALL( SCIPsetProbData(subscip, (SCIP_PROBDATA*)sub_probdata) );
 
 	nedges = probdata -> nedges;
@@ -366,8 +408,8 @@ SCIP_RETCODE createIpPricerProblem(
 	edgeVarsObjCoef = NULL;
 	edgeVarsSizeConsCoef = NULL;
 
-	SCIP_CALL( SCIPallocBufferArray(subscip, &edge_vars, nedges) );
-	SCIP_CALL( SCIPallocBufferArray(subscip, &node_vars, nnodes) );
+	SCIP_CALL( SCIPallocBlockMemoryArray(subscip, &edge_vars, nedges) );
+	SCIP_CALL( SCIPallocBlockMemoryArray(subscip, &node_vars, nnodes) );
 
 	sub_probdata -> edge_vars = edge_vars;
 	sub_probdata -> node_vars = node_vars;
