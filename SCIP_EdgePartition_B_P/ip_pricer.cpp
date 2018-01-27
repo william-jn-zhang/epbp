@@ -538,37 +538,6 @@ SCIP_RETCODE createIpPricerProblem(
 
 	/* finished build problem */
 
-	//add heuristic
-#ifdef SUBSCIP_USEHEUR
-	SCIP_CALL( SCIPincludeHeurActconsdiving(subscip) );
-	SCIP_CALL( SCIPincludeHeurCoefdiving(subscip) );
-	SCIP_CALL( SCIPincludeHeurCrossover(subscip) );
-	SCIP_CALL( SCIPincludeHeurDins(subscip) );
-	SCIP_CALL( SCIPincludeHeurFixandinfer(subscip) );
-	SCIP_CALL( SCIPincludeHeurFracdiving(subscip) );
-	SCIP_CALL( SCIPincludeHeurGuideddiving(subscip) );
-	SCIP_CALL( SCIPincludeHeurIntdiving(subscip) );
-	SCIP_CALL( SCIPincludeHeurIntshifting(subscip) );
-	SCIP_CALL( SCIPincludeHeurLinesearchdiving(subscip) );
-	SCIP_CALL( SCIPincludeHeurLocalbranching(subscip) );
-	SCIP_CALL( SCIPincludeHeurMutation(subscip) );
-	SCIP_CALL( SCIPincludeHeurObjpscostdiving(subscip) );
-	SCIP_CALL( SCIPincludeHeurOctane(subscip) );
-	SCIP_CALL( SCIPincludeHeurOneopt(subscip) );
-	SCIP_CALL( SCIPincludeHeurPscostdiving(subscip) );
-	SCIP_CALL( SCIPincludeHeurRens(subscip) );
-	SCIP_CALL( SCIPincludeHeurRins(subscip) );
-	SCIP_CALL( SCIPincludeHeurRootsoldiving(subscip) );
-	SCIP_CALL( SCIPincludeHeurRounding(subscip) );
-	SCIP_CALL( SCIPincludeHeurShifting(subscip) );
-	SCIP_CALL( SCIPincludeHeurSimplerounding(subscip) );
-	SCIP_CALL( SCIPincludeHeurTrivial(subscip) );
-	SCIP_CALL( SCIPincludeHeurTrySol(subscip) );
-	SCIP_CALL( SCIPincludeHeurTwoopt(subscip) );
-	SCIP_CALL( SCIPincludeHeurUndercover(subscip) );
-	SCIP_CALL( SCIPincludeHeurVeclendiving(subscip) );
-	SCIP_CALL( SCIPincludeHeurZirounding(subscip) );
-#endif
 
 	SCIP_CALL( subscipIncludeEventHdlrBestsol(subscip) );
 	threshold = pricerdata -> pi[pricerdata -> constraintssize - 1];
