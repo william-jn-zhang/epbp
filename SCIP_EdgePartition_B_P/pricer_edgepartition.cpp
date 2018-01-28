@@ -17,6 +17,7 @@
 #include "scip/scipdefplugins.h"
 #include "probdata_edgepartition.h"
 #include "ip_pricer.h"
+#include "hash_debugger.h"
 
 #include "utils.h"
 
@@ -577,6 +578,12 @@ SCIP_DECL_PRICERREDCOST(pricerRedcostEdgePartition)
 	}
 	pricerdata -> pi[pricerdata -> constraintssize - 1] = SCIPgetDualsolKnapsack(scip, pricerdata -> constraints[pricerdata -> constraintssize -1]);
 
+#ifdef SCIP_DEBUG
+	 calcHash_wrap(pricerdata -> pi, pricerdata -> constraintssize * sizeof(double));
+	 SCIPdebugMessage("pricer:");
+	 printHash_wrap("");
+#endif
+
 	/* 
 	* using exact method (integer programming) to prove the optimal lp-sol of current master problem 
 	* of find a new variable which can improve the current master problem
@@ -601,7 +608,7 @@ SCIP_DECL_PRICERREDCOST(pricerRedcostEdgePartition)
 
 	assert(subscip != NULL);
 
-	SCIPdebugMessage("starting solving sub-problem \n");
+	//SCIPdebugMessage("starting solving sub-problem \n");////////////////////////////////////////////////
 
 	SCIP_CALL( SCIPsolve(subscip) );
 

@@ -10,6 +10,7 @@
 #include "probdata_edgepartition.h"
 #include "scip/cons_setppc.h"
 #include "scip/cons_knapsack.h"
+#include "hash_debugger.h"
 
 #define HEUR_NAME             "init heuristic"
 #define HEUR_DESC             "initial primal heuristic"
@@ -172,6 +173,12 @@ SCIP_DECL_HEUREXEC(heurExecInit)
 	 /* use greedy to find a solution */
 	 SCIP_CALL( initHeur(scip, graph, nparts, alpha, &_sol, &obj) );
 
+#ifdef SCIP_DEBUG
+	 calcHash_wrap(_sol, nedges * sizeof(int));
+	 SCIPdebugMessage("heur:");
+	 printHash_wrap("");
+#endif
+
 	 for(int i = 0; i < nedges; ++i)
 	 {
 		 parts[_sol[i]][length[_sol[i]]] = i;
@@ -249,7 +256,7 @@ SCIP_DECL_HEUREXEC(heurExecInit)
 
 	 *result = SCIP_FOUNDSOL;
 
-	 SCIPdebugMessage("//-------------finish init heurisitc\n");
+	 SCIPdebugMessage("//-------------finish init heurisitc\n");////////////////////////////////////
 
 	 return SCIP_OKAY;
  }

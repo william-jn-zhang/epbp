@@ -8,6 +8,8 @@
 #include "scip/scip.h"
 #include "scip/scipdefplugins.h"
 
+#include "hash_debugger.h"
+
 #include "heur.h"
 #include "my_graph.h"
 #include "reader_epp.h"

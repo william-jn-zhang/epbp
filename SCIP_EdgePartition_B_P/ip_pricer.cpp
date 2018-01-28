@@ -12,6 +12,7 @@
 #include "scip/cons_knapsack.h"
 #include "scip/scipdefplugins.h"
 #include "probdata_edgepartition.h"
+#include "hash_debugger.h"
 
 struct IP_PRICER_PROBDATA
 {
@@ -67,7 +68,7 @@ SCIP_RETCODE freeSubProbdata(
 static
 SCIP_DECL_PROBDELORIG(subprobdataDelOrig)
 {
-	SCIPdebugMsg(scip, "free original problem data\n");
+	//SCIPdebugMsg(scip, "free original problem data\n");///////////////////////////////////////////////////////////////
 
 	SCIP_CALL( freeSubProbdata(scip, (IP_PRICER_PROBDATA**)probdata) );
 
@@ -117,7 +118,7 @@ SCIP_RETCODE addNewPricedVar(
 	SCIP_VAR* var;
 	int newvaridx;
 
-	SCIPdebugMessage("Enter function: addNewPricedVar \n");
+	//SCIPdebugMessage("Enter function: addNewPricedVar \n");///////////////////////////////////////////////////
 
 	assert(subscip != NULL);
 	assert(bestsol != NULL);
@@ -182,6 +183,18 @@ SCIP_RETCODE addNewPricedVar(
 			varnodeset[e.node2] = 1;
 		}
 	}
+
+#ifdef SCIP_DEBUG
+	calcHash_wrap(setArray, setArrayLength * sizeof(int));
+	SCIPdebugMessage("ippricer-setArray:");
+	printHash_wrap("");
+#endif
+
+#ifdef SCIP_DEBUG
+	calcHash_wrap(varnodeset, nnodes * sizeof(int));
+	SCIPdebugMessage("ippricer-varnodeset:");
+	printHash_wrap("");
+#endif
 
 	SCIPfreeBufferArray(scip, &varnodeset);
 
@@ -265,6 +278,12 @@ SCIP_DECL_EVENTEXEC(subscipEventExecBestsol)
 	subprobdata = (IP_PRICER_PROBDATA*)SCIPgetProbData(scip);
 
 	solval = SCIPgetSolOrigObj(scip, bestsol);
+
+#ifdef SCIP_DEBUG
+	calcHash_wrap(&solval, sizeof(double));
+	SCIPdebugMessage("ippricer-solval:");
+	printHash_wrap("");
+#endif
 
 	/* once we find a feasible solution, terminate */
 	//if(threshold + solval >= 1.0)
@@ -369,7 +388,7 @@ SCIP_RETCODE createIpPricerProblem(
 
 	///////////////////////////////////
 
-	SCIPdebugMessage("Enter function: createIpPricerProblem \n");
+	//SCIPdebugMessage("Enter function: createIpPricerProblem \n");//////////////////////////////////////////////////
 
 	assert(pricerdata != NULL);
 
@@ -565,7 +584,7 @@ SCIP_RETCODE changIpPricerObjCoef(
 	SCIP_VAR** node_vars;
 	SCIP_VAR** vars;
 
-	SCIPdebugMessage("Enter function: changIpPricerObjCoef \n");
+	//SCIPdebugMessage("Enter function: changIpPricerObjCoef \n");/////////////////////////////////////////////////////////////
 
 	assert(subscip != NULL);
 	assert(pricerdata != NULL);

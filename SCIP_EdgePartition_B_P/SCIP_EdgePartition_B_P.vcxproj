@@ -116,6 +116,7 @@
   <ItemGroup>
     <ClCompile Include="branch_edge.cpp" />
     <ClCompile Include="cons_branchinfo.cpp" />
+    <ClCompile Include="hash_debugger.cpp" />
     <ClCompile Include="heur.cpp" />
     <ClCompile Include="ip_pricer.cpp" />
     <ClCompile Include="main.cpp" />
@@ -125,10 +126,12 @@
     <ClCompile Include="reader_epp.cpp" />
     <ClCompile Include="test.cpp" />
     <ClCompile Include="utils.cpp" />
+    <ClCompile Include="xxhash.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="branch_edge.h" />
     <ClInclude Include="cons_branchinfo.h" />
+    <ClInclude Include="hash_debugger.h" />
     <ClInclude Include="heur.h" />
     <ClInclude Include="ip_pricer.h" />
     <ClInclude Include="my_def.h" />
@@ -137,6 +140,7 @@
     <ClInclude Include="probdata_edgepartition.h" />
     <ClInclude Include="reader_epp.h" />
     <ClInclude Include="utils.h" />
+    <ClInclude Include="xxhash.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

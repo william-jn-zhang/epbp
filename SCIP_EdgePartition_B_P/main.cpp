@@ -17,6 +17,7 @@
 #include "cons_branchinfo.h"
 #include "branch_edge.h"
 #include "my_def.h"
+#include "hash_debugger.h"
 
 #include "scip/heur_actconsdiving.h"
 #include "scip/heur_coefdiving.h"
@@ -52,6 +53,11 @@
 
 int main(int argc, char** argv)
 {
+#ifdef SCIP_DEBUG
+	extern HashMem* HASHMEM;
+	createHashMem(&HASHMEM);
+#endif
+
 	SCIP* scip = NULL;
 	SCIP_CALL( SCIPcreate(&scip) );
 	assert(scip != NULL);
@@ -63,7 +69,7 @@ int main(int argc, char** argv)
 
 	SCIP_CALL( SCIPincludePricerEdgePartition(scip) );
 
-	SCIP_CALL( SCIPincludeEdgeBranchRule(scip) );
+	//SCIP_CALL( SCIPincludeEdgeBranchRule(scip) );
 
 	SCIP_CALL( SCIPincludeDefaultPlugins(scip) );
 
