@@ -38,6 +38,8 @@ HASHCODE calcHash(
 	void* _buffer = NULL;
 	size_t newlength = length + sizeof(HASHCODE);
 
+	hashmem -> mem = 0L;
+
 	_buffer = malloc(newlength);
 	memset(_buffer, 0, newlength);
 
@@ -71,5 +73,28 @@ void printHash_wrap(const char* title)
 {
 	extern HashMem* HASHMEM;
 	printf(title);
+	//printf("\n");
 	printf("%lld\n", HASHMEM -> mem);
+}
+
+void printIntArray(
+	const int* intarray, 
+	size_t length
+	)
+{
+	for(int i = 0; i < length; ++i)
+	{
+		printf("%d ", intarray[i]);
+	}
+}
+
+void printDoubleArray(
+	const double* doublearray, 
+	size_t length
+	)
+{
+	for(int i = 0; i < length; ++i)
+	{
+		printf("%lf ", doublearray[i]);
+	}
 }

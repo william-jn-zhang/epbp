@@ -10,6 +10,7 @@
 #include "cons_branchinfo.h"
 #include "scip/cons_setppc.h"
 #include "scip/cons_knapsack.h"
+#include "scip/cons_linking.h"
 #include "scip/scipdefplugins.h"
 #include "probdata_edgepartition.h"
 #include "hash_debugger.h"
@@ -111,6 +112,7 @@ SCIP_RETCODE addNewPricedVar(
 
 	int* setArray;
 	int* varnodeset;
+	double* solnodeset;
 	int setArrayLength;
 
 	SCIP_VAR** edge_vars;
@@ -184,19 +186,55 @@ SCIP_RETCODE addNewPricedVar(
 		}
 	}
 
+	/* 
+	avoid duplicate setArray
+	baseed on the following observation:
+	the duplicated solution's node set is larger than the varnodeset
+	*/
+	solnodeset = NULL;
+	SCIP_CALL( SCIPallocBufferArray(scip, &solnodeset, nnodes) );
+	memset(solnodeset, 0, nnodes * sizeof(int));
+	SCIP_CALL( SCIPgetSolVals(scip, bestsol, nnodes, subprobdata -> node_vars, solnodeset) );
+	for(int i = 0; i < nnodes; ++i)
+	{
+		if(!SCIPisFeasEQ(scip, varnodeset[i], solnodeset[i]))
+		{
+			SCIPfreeBufferArray(scip, &solnodeset);
+			SCIPfreeBufferArray(scip, &varnodeset);
+			SCIPfreeBufferArray(scip, &setArray);
+
+			return SCIP_OKAY;
+		}
+	}
+
+
 #ifdef SCIP_DEBUG
 	calcHash_wrap(setArray, setArrayLength * sizeof(int));
 	SCIPdebugMessage("ippricer-setArray:");
+	printIntArray(setArray, setArrayLength);
+	printf("\n");
+	printHash_wrap("");
+#endif
+
+#ifdef SCIP_DEBUG
+	calcHash_wrap(pricerdata -> pi, pricerdata -> constraintssize * sizeof(double));
+	SCIPdebugMessage("ippricer-pi:");
+	printDoubleArray(pricerdata -> pi, pricerdata -> constraintssize);
+	printf("\n");
 	printHash_wrap("");
 #endif
 
 #ifdef SCIP_DEBUG
 	calcHash_wrap(varnodeset, nnodes * sizeof(int));
 	SCIPdebugMessage("ippricer-varnodeset:");
+	printIntArray(varnodeset, nnodes);
+	printf("\n");
 	printHash_wrap("");
 #endif
 
+	SCIPfreeBufferArray(scip, &solnodeset);
 	SCIPfreeBufferArray(scip, &varnodeset);
+
 
 	// add the new find var set
 	SCIP_CALL( SCIPprobdataADDVarSet(scip, setArray, setArrayLength, &newvaridx) );
@@ -209,7 +247,7 @@ SCIP_RETCODE addNewPricedVar(
 	SCIP_CALL( SCIPprobdataADDVar(scip, var, newvaridx) );
 
 	// add the new var into problem
-	SCIP_CALL( SCIPaddPricedVar(scip, var, (threshold + solval)) );
+	SCIP_CALL( SCIPaddPricedVar(scip, var, -(threshold + solval)) );
 	SCIP_CALL( SCIPchgVarUbLazy(scip, var, 1.0) );
 
 	// add the new variable to the corresponding constraints
@@ -275,28 +313,37 @@ SCIP_DECL_EVENTEXEC(subscipEventExecBestsol)
 	threshold = (double)(size_t)SCIPeventhdlrGetData(eventhdlr);
 	assert(bestsol != NULL);
 
+	//TODO: get all best solution
+
 	subprobdata = (IP_PRICER_PROBDATA*)SCIPgetProbData(scip);
 
 	solval = SCIPgetSolOrigObj(scip, bestsol);
 
 #ifdef SCIP_DEBUG
 	calcHash_wrap(&solval, sizeof(double));
-	SCIPdebugMessage("ippricer-solval:");
+	SCIPdebugMessage("ippricer-solval:%lf,", solval);
 	printHash_wrap("");
 #endif
 
 	/* once we find a feasible solution, terminate */
 	//if(threshold + solval >= 1.0)
+
+	//SCIP_CALL( SCIPprintSol(scip, bestsol, NULL, TRUE) );
+
 	if(SCIPisFeasLE(scip, (threshold + solval), -1.0))
 	{
 		if(subprobdata -> nVarAdd < subprobdata -> maxNVarAdd)
 		{
 			SCIP_CALL( addNewPricedVar(scip, bestsol) );
 		}
-		if(subprobdata -> nVarAdd == subprobdata -> maxNVarAdd || subprobdata -> pricedata -> addedvar == FALSE || SCIPgetStatus(scip) == SCIP_STATUS_OPTIMAL)
+		else
 		{
 			SCIP_CALL( SCIPinterruptSolve(scip) );
 		}
+		//if(subprobdata -> nVarAdd == subprobdata -> maxNVarAdd || subprobdata -> pricedata -> addedvar == FALSE || SCIPgetStatus(scip) == SCIP_STATUS_OPTIMAL)
+		//{
+		//	SCIP_CALL( SCIPinterruptSolve(scip) );
+		//}
 	}
 
 	return SCIP_OKAY;
@@ -388,7 +435,7 @@ SCIP_RETCODE createIpPricerProblem(
 
 	///////////////////////////////////
 
-	//SCIPdebugMessage("Enter function: createIpPricerProblem \n");//////////////////////////////////////////////////
+	SCIPdebugMessage("Enter function: createIpPricerProblem \n");//////////////////////////////////////////////////
 
 	assert(pricerdata != NULL);
 
@@ -497,10 +544,21 @@ SCIP_RETCODE createIpPricerProblem(
 		tmpvals[1] = -1.0;
 		assert(tmpvars[0] != NULL);
 		assert(tmpvars[1] != NULL);
-		generateElementName(elename, "relation_cons", i, e.node1, -1);
-		SCIP_CALL( SCIPcreateConsBasicLinear(subscip, &cons, elename, 2, tmpvars, tmpvals, 0, SCIP_DEFAULT_INFINITY) );
+		generateElementName(elename, "relation_cons", i, e.node1, 0);
+		SCIP_CALL( SCIPcreateConsBasicLinear(subscip, &cons, elename, 2, tmpvars, tmpvals, 0.0, SCIP_DEFAULT_INFINITY) );
 		SCIP_CALL( SCIPaddCons(subscip, cons) );
 		SCIP_CALL( SCIPreleaseCons(subscip, &cons) );
+
+		//tmpvars[1] = node_vars[e.node1];
+		//tmpvars[0] = edge_vars[RepFind(branchInfo_consdata -> rep, i)];
+		//tmpvals[0] = 1.0;
+		//tmpvals[1] = -1.0;
+		//assert(tmpvars[0] != NULL);
+		//assert(tmpvars[1] != NULL);
+		//generateElementName(elename, "relation_cons", i, e.node1, 1);
+		//SCIP_CALL( SCIPcreateConsBasicLinear(subscip, &cons, elename, 2, tmpvars, tmpvals, 0.0, SCIP_DEFAULT_INFINITY) );
+		//SCIP_CALL( SCIPaddCons(subscip, cons) );
+		//SCIP_CALL( SCIPreleaseCons(subscip, &cons) );
 
 		tmpvars[0] = node_vars[e.node2];
 		tmpvars[1] = edge_vars[RepFind(branchInfo_consdata -> rep, i)];
@@ -508,13 +566,58 @@ SCIP_RETCODE createIpPricerProblem(
 		tmpvals[1] = -1.0;
 		assert(tmpvars[0] != NULL);
 		assert(tmpvars[1] != NULL);
-		generateElementName(elename, "relation_cons", i, e.node2, -1);
-		SCIP_CALL( SCIPcreateConsBasicLinear(subscip, &cons, elename, 2, tmpvars, tmpvals, 0, SCIP_DEFAULT_INFINITY) );
+		generateElementName(elename, "relation_cons", i, e.node2, 0);
+		SCIP_CALL( SCIPcreateConsBasicLinear(subscip, &cons, elename, 2, tmpvars, tmpvals, 0.0, SCIP_DEFAULT_INFINITY) );
 		SCIP_CALL( SCIPaddCons(subscip, cons) );
 		SCIP_CALL( SCIPreleaseCons(subscip, &cons) );
+
+		//tmpvars[1] = node_vars[e.node2];
+		//tmpvars[0] = edge_vars[RepFind(branchInfo_consdata -> rep, i)];
+		//tmpvals[0] = 1.0;
+		//tmpvals[1] = -1.0;
+		//assert(tmpvars[0] != NULL);
+		//assert(tmpvars[1] != NULL);
+		//generateElementName(elename, "relation_cons", i, e.node2, 1);
+		//SCIP_CALL( SCIPcreateConsBasicLinear(subscip, &cons, elename, 2, tmpvars, tmpvals, 0.0, SCIP_DEFAULT_INFINITY) );
+		//SCIP_CALL( SCIPaddCons(subscip, cons) );
+		//SCIP_CALL( SCIPreleaseCons(subscip, &cons) );
 	}
 	SCIPfreeBufferArray(subscip, &tmpvars);
 	SCIPfreeBufferArray(subscip, &tmpvals);
+
+	// add edge-node relation constraints [linking constraints]
+	//tmpvars = NULL;
+	//tmpvals = NULL;
+	//SCIP_CALL( SCIPallocBufferArray(subscip, &tmpvars, 2) );
+	//SCIP_CALL( SCIPallocBufferArray(subscip, &tmpvals, 2) );
+	//for(int i = 0; i < nedges; ++i)
+	//{
+	//	MY_EDGE e = MY_GRAPHgetEdge(graph, i);
+
+	//	tmpvars[0] = node_vars[e.node1];
+	//	tmpvars[1] = edge_vars[RepFind(branchInfo_consdata -> rep, i)];
+	//	tmpvals[0] = 1.0;
+	//	tmpvals[1] = -1.0;
+	//	assert(tmpvars[0] != NULL);
+	//	assert(tmpvars[1] != NULL);
+	//	generateElementName(elename, "relation_cons", i, e.node1, -1);
+	//	SCIP_CALL( SCIPcreateConsBasicLinking(subscip, &cons, elename, tmpvars[1], tmpvars, tmpvals, 1) );
+	//	SCIP_CALL( SCIPaddCons(subscip, cons) );
+	//	SCIP_CALL( SCIPreleaseCons(subscip, &cons) );
+
+	//	tmpvars[0] = node_vars[e.node2];
+	//	tmpvars[1] = edge_vars[RepFind(branchInfo_consdata -> rep, i)];
+	//	tmpvals[0] = 1.0;
+	//	tmpvals[1] = -1.0;
+	//	assert(tmpvars[0] != NULL);
+	//	assert(tmpvars[1] != NULL);
+	//	generateElementName(elename, "relation_cons", i, e.node2, -1);
+	//	SCIP_CALL( SCIPcreateConsBasicLinking(subscip, &cons, elename, tmpvars[1], tmpvars, tmpvals, 1) );
+	//	SCIP_CALL( SCIPaddCons(subscip, cons) );
+	//	SCIP_CALL( SCIPreleaseCons(subscip, &cons) );
+	//}
+	//SCIPfreeBufferArray(subscip, &tmpvars);
+	//SCIPfreeBufferArray(subscip, &tmpvals);
 
 	//add size constraint
 	tmpsize = 0;
@@ -580,11 +683,14 @@ SCIP_RETCODE changIpPricerObjCoef(
 	IP_PRICER_PROBDATA* sub_probdata;
 	int nedges;
 	int nnodes;
+
+	double threshold;
+
 	SCIP_VAR** edge_vars;
 	SCIP_VAR** node_vars;
 	SCIP_VAR** vars;
 
-	//SCIPdebugMessage("Enter function: changIpPricerObjCoef \n");/////////////////////////////////////////////////////////////
+	SCIPdebugMessage("Enter function: changIpPricerObjCoef \n");/////////////////////////////////////////////////////////////
 
 	assert(subscip != NULL);
 	assert(pricerdata != NULL);
@@ -597,6 +703,7 @@ SCIP_RETCODE changIpPricerObjCoef(
 	node_vars = sub_probdata -> node_vars;
 
 	setAddedVar(sub_probdata, FALSE);
+	sub_probdata -> nVarAdd = 0;
 
 	varsObjCoef = NULL;
 	vars = NULL;
@@ -626,6 +733,9 @@ SCIP_RETCODE changIpPricerObjCoef(
 
 	SCIPfreeBufferArray(subscip, &varsObjCoef);
 	SCIPfreeBufferArray(subscip, &vars);
+
+	threshold = pricerdata -> pi[pricerdata -> constraintssize - 1];
+	SCIP_CALL( setSubscipBestsolEventHdlrData(subscip, EVENTHDLR_NAME, threshold) );
 
 	return SCIP_OKAY;
 }

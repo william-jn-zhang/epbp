@@ -53,4 +53,15 @@ void printHash_wrap(
 	const char* title
 	);
 
+void printIntArray(
+	const int* intarray, 
+	size_t length
+	);
+
+void printDoubleArray(
+	const double* doublearray, 
+	size_t length
+	);
+
+
 #endif
