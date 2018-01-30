@@ -9,7 +9,9 @@
 
 //#define TEST_READ
 //#define DEBUG_PRINT
-//#define SCIP_DEBUG
+#define SCIP_DEBUG
+//#define PRICER_DEBUG
+#define BRANCH_DEBUG
 //#define SUBSCIP_OUTPUT_ENABLE
 
 #endif

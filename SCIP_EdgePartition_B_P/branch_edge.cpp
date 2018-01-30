@@ -12,6 +12,7 @@
 #include "my_def.h"
 #include "probdata_edgepartition.h"
 #include "cons_branchinfo.h"
+#include "hash_debugger.h"
 
 #define BRANCHRULE_NAME         "branch edge"
 #define BRANCHRULE_DESC         "branch rule ryan forster on edge"
@@ -26,6 +27,10 @@ SCIP_DECL_BRANCHEXECLP(branchEdgeExeLp)
 	/* array of candidates for branching and its fractionality */
 	SCIP_VAR** lpcands;
 	SCIP_Real* lpcandsfrac;
+
+	SCIP_Real* lpcandssol;
+	int* lpcandsvardata;
+
 	int nlpcands;
 
 	/* variables for finding the most fractional column */
@@ -67,8 +72,43 @@ SCIP_DECL_BRANCHEXECLP(branchEdgeExeLp)
 
 	*result = SCIP_DIDNOTRUN;
 
-	SCIP_CALL( SCIPgetLPBranchCands(scip, &lpcands, NULL, &lpcandsfrac, NULL, &nlpcands, NULL) );
+	SCIP_CALL( SCIPgetLPBranchCands(scip, &lpcands, &lpcandssol, &lpcandsfrac, NULL, &nlpcands, NULL) );
 	assert(nlpcands > 0);
+
+#ifdef BRANCH_DEBUG
+	lpcandsvardata = NULL;
+	SCIP_CALL( SCIPallocBufferArray(scip, &lpcandsvardata, nlpcands) );
+
+	for(int i = 0; i < nlpcands; ++i)
+	{
+		lpcandsvardata[i] = (int)(size_t)SCIPvarGetData(lpcands[i]);
+	}
+
+	printf("nlpcands:%d\n", nlpcands);
+
+	calcHash_wrap(lpcandssol, nlpcands * sizeof(double));
+	SCIPdebugMessage("lpcands-sol:");
+	printf("lpcands-sol:");
+	printDoubleArray(lpcandssol, nlpcands);
+	printf(":");
+	printHash_wrap("");
+
+	calcHash_wrap(lpcandsfrac, nlpcands * sizeof(double));
+	SCIPdebugMessage("lpcandsfrac:");
+	printf("lpcandsfrac:");
+	printDoubleArray(lpcandsfrac, nlpcands);
+	printf(":");
+	printHash_wrap("");
+
+	calcHash_wrap(lpcandsvardata, nlpcands * sizeof(int));
+	SCIPdebugMessage("lpcands-vardata:");
+	printf("lpcands-vardata:");
+	printIntArray(lpcandsvardata, nlpcands);
+	printf(":");
+	printHash_wrap("");
+
+	SCIPfreeBufferArray(scip, &lpcandsvardata);
+#endif
 
 	bestcand = -1;
 	bestfrac = 1;
@@ -173,6 +213,23 @@ SCIP_DECL_BRANCHEXECLP(branchEdgeExeLp)
 
 	assert(edge2 != -1);
 	assert(edge1 != -1);
+
+#ifdef BRANCH_DEBUG
+
+	printf("var1:%d\n", s1idx);
+	printf("set1Array:");
+	printIntArray(set1, nset1);
+	printf("\n");
+
+	printf("var2:%d\n", s2idx);
+	printf("set2Array:");
+	printIntArray(set2, nset2);
+	printf("\n");
+
+	printf("edge1:%d", edge1);
+	printf("edge2:%d", edge2);
+
+#endif
 
 	/* create the b&b-tree child node of the current node */
 

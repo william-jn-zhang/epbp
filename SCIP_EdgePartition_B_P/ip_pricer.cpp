@@ -208,7 +208,7 @@ SCIP_RETCODE addNewPricedVar(
 	}
 
 
-#ifdef SCIP_DEBUG
+#ifdef PRICER_DEBUG
 	calcHash_wrap(setArray, setArrayLength * sizeof(int));
 	SCIPdebugMessage("ippricer-setArray:");
 	printIntArray(setArray, setArrayLength);
@@ -216,7 +216,7 @@ SCIP_RETCODE addNewPricedVar(
 	printHash_wrap("");
 #endif
 
-#ifdef SCIP_DEBUG
+#ifdef PRICER_DEBUG
 	calcHash_wrap(pricerdata -> pi, pricerdata -> constraintssize * sizeof(double));
 	SCIPdebugMessage("ippricer-pi:");
 	printDoubleArray(pricerdata -> pi, pricerdata -> constraintssize);
@@ -224,7 +224,7 @@ SCIP_RETCODE addNewPricedVar(
 	printHash_wrap("");
 #endif
 
-#ifdef SCIP_DEBUG
+#ifdef PRICER_DEBUG
 	calcHash_wrap(varnodeset, nnodes * sizeof(int));
 	SCIPdebugMessage("ippricer-varnodeset:");
 	printIntArray(varnodeset, nnodes);
@@ -319,7 +319,7 @@ SCIP_DECL_EVENTEXEC(subscipEventExecBestsol)
 
 	solval = SCIPgetSolOrigObj(scip, bestsol);
 
-#ifdef SCIP_DEBUG
+#ifdef PRICER_DEBUG
 	calcHash_wrap(&solval, sizeof(double));
 	SCIPdebugMessage("ippricer-solval:%lf,", solval);
 	printHash_wrap("");
@@ -435,7 +435,9 @@ SCIP_RETCODE createIpPricerProblem(
 
 	///////////////////////////////////
 
+#ifdef PRICER_DEBUG
 	SCIPdebugMessage("Enter function: createIpPricerProblem \n");//////////////////////////////////////////////////
+#endif
 
 	assert(pricerdata != NULL);
 
@@ -690,7 +692,9 @@ SCIP_RETCODE changIpPricerObjCoef(
 	SCIP_VAR** node_vars;
 	SCIP_VAR** vars;
 
+#ifdef PRICER_DEBUG
 	SCIPdebugMessage("Enter function: changIpPricerObjCoef \n");/////////////////////////////////////////////////////////////
+#endif
 
 	assert(subscip != NULL);
 	assert(pricerdata != NULL);

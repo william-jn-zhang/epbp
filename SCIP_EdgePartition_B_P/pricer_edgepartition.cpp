@@ -578,7 +578,7 @@ SCIP_DECL_PRICERREDCOST(pricerRedcostEdgePartition)
 	}
 	pricerdata -> pi[pricerdata -> constraintssize - 1] = SCIPgetDualsolKnapsack(scip, pricerdata -> constraints[pricerdata -> constraintssize -1]);
 
-#ifdef SCIP_DEBUG
+#ifdef PRICER_DEBUG
 	 calcHash_wrap(pricerdata -> pi, pricerdata -> constraintssize * sizeof(double));
 	 SCIPdebugMessage("pricer:");
 	 printHash_wrap("");
@@ -613,7 +613,7 @@ SCIP_DECL_PRICERREDCOST(pricerRedcostEdgePartition)
 	SCIP_CALL( SCIPsolve(subscip) );
 
 	// debug print
-#ifdef SCIP_DEBUG
+#ifdef PRICER_DEBUG
 	printArrayDouble("dual val", pricerdata -> pi, pricerdata -> constraintssize);
 #endif
 

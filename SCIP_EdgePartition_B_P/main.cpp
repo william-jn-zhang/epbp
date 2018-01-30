@@ -69,7 +69,7 @@ int main(int argc, char** argv)
 
 	SCIP_CALL( SCIPincludePricerEdgePartition(scip) );
 
-	//SCIP_CALL( SCIPincludeEdgeBranchRule(scip) );
+	SCIP_CALL( SCIPincludeEdgeBranchRule(scip) );
 
 	SCIP_CALL( SCIPincludeDefaultPlugins(scip) );
 
