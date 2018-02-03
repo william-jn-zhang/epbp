@@ -442,11 +442,11 @@ SCIP_Bool SCIPprobdataIsEdgeInSet(
 		}
 		if(probdata -> setArray[idx][m] > edge)
 		{
-			l = m + 1;
+			u = m - 1;
 		}
 		if(probdata -> setArray[idx][m] < edge)
 		{
-			u = m - 1;
+			l = m + 1;
 		}
 	}
 	return FALSE;

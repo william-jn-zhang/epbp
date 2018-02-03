@@ -269,7 +269,9 @@ SCIP_DECL_CONSDELETE(consDeleteBranchInfo)
 	{
 		SCIPfreeBlockMemoryArray(scip, &((*consdata) -> differ_branch), 2 * ((*consdata) -> ndiffer));
 	}
+#ifndef MEMLEAK
 	SCIPfreeBlockMemoryArray(scip, &((*consdata) -> rep), (*consdata) -> nedges);
+#endif
 
 	SCIPfreeBlockMemory(scip, consdata);
 
@@ -341,6 +343,10 @@ SCIP_DECL_CONSPROP(consPropBranchInfo)
 	*result = SCIP_DIDNOTFIND;
 	propcount = 0;
 
+#ifdef SCIP_DEBUG
+	//printf("propagate\n");
+#endif
+
 	cons = conshdlrData -> stack[conshdlrData -> ncons - 1];
 	consdata = SCIPconsGetData(cons);
 
@@ -380,6 +386,8 @@ SCIP_DECL_CONSPROP(consPropBranchInfo)
 	}
 
 	consdata -> propagatedvars = SCIPgetNTotalVars(scip);
+
+	*result = SCIP_REDUCEDDOM;
 
 	return SCIP_OKAY;
 }
@@ -488,6 +496,8 @@ SCIP_RETCODE SCIPconsCreateConsBranchInfo(
 	consdata -> same_branch = NULL;
 	consdata -> ndiffer = 0; 
 	consdata -> nsame = 0;
+
+	consdata -> propagatedvars = 0;
 
 	SCIP_CALL( SCIPcreateCons(scip, cons, consname, conshdlr, consdata, FALSE, FALSE, FALSE, FALSE, TRUE,
          TRUE, FALSE, TRUE, FALSE, TRUE) );

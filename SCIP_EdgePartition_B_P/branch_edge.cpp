@@ -22,6 +22,19 @@
 
 
 static
+SCIP_Bool inLpVarCands(SCIP_VAR** lpcands, int nlpcands, const SCIP_VAR* var)
+{
+	for(int i = 0; i < nlpcands; ++i)
+	{
+		if(lpcands[i] == var)
+		{
+			return TRUE;
+		}
+	}
+	return FALSE;
+}
+
+static
 SCIP_DECL_BRANCHEXECLP(branchEdgeExeLp)
 {
 	/* array of candidates for branching and its fractionality */
@@ -113,11 +126,13 @@ SCIP_DECL_BRANCHEXECLP(branchEdgeExeLp)
 	bestcand = -1;
 	bestfrac = 1;
 
+	/* find the most fractional variable */
+
 	for(int i = 0; i < nlpcands; ++i)
 	{
 		assert(lpcands[i] != NULL);
 		frac = lpcandsfrac[i];
-		frac = MIN(frac, 1.0 - frac);
+		frac = ABS(0.5 - frac);
 		if( frac < bestfrac)
 		{
 			bestfrac = frac;
@@ -126,7 +141,6 @@ SCIP_DECL_BRANCHEXECLP(branchEdgeExeLp)
 	}
 
 	assert(bestcand >= 0);
-	assert(SCIPisFeasPositive(scip, bestfrac));
 
 	s1 = lpcands[bestcand];
 	s1idx = (int)(size_t)SCIPvarGetData(s1);
@@ -145,7 +159,8 @@ SCIP_DECL_BRANCHEXECLP(branchEdgeExeLp)
 		nvars = SCIPgetNVarsSetppc(scip, cons1);
 		for(int j = 0; j < nvars; ++j)
 		{
-			if( vars[j] != s1 && !SCIPisFeasZero(scip, SCIPvarGetUbLocal(vars[j])))
+			//if( vars[j] != s1 && !SCIPisFeasZero(scip, SCIPvarGetUbLocal(vars[j])))
+			if(vars[j] != s1 && inLpVarCands(lpcands, nlpcands, vars[j]))
 			{
 				s2 = vars[j];
 				s2idx = (int)(size_t) SCIPvarGetData(s2);
@@ -226,8 +241,10 @@ SCIP_DECL_BRANCHEXECLP(branchEdgeExeLp)
 	printIntArray(set2, nset2);
 	printf("\n");
 
-	printf("edge1:%d", edge1);
-	printf("edge2:%d", edge2);
+	printf("edge1:%d\n", edge1);
+	printf("edge2:%d\n", edge2);
+
+	printf("node:%x\n", SCIPgetCurrentNode(scip));
 
 #endif
 
@@ -247,6 +264,16 @@ SCIP_DECL_BRANCHEXECLP(branchEdgeExeLp)
 
 	SCIP_CALL( SCIPreleaseCons(scip, &conssame) );
 	SCIP_CALL( SCIPreleaseCons(scip, &consdiffer) );
+
+#ifdef BRANCH_DEBUG
+
+	printf("create-snode:%x\n", childsame);
+	printf("create-dnode:%x\n", childdiffer);
+
+#endif
+
+	/* propagate */
+	//SCIP_CALL( SCIPrepropagateNode(scip, child) );
 
 	*result = SCIP_BRANCHED;
 

@@ -571,6 +571,18 @@ SCIP_DECL_PRICERREDCOST(pricerRedcostEdgePartition)
 
 	*result = SCIP_DIDNOTRUN;
 
+	// propagate new add variables
+	
+	SCIP_CONS* cons_branchInfo = SCIPconsGetActiveBranchInfoCons(scip);
+	SCIP_CONSDATA* consdata = SCIPconsGetData(cons_branchInfo);
+	if(consdata -> type != BRANCH_CONSTYPE_ROOT)
+	{
+		if(consdata -> propagatedvars < SCIPgetNTotalVars(scip))
+		{
+			SCIP_CALL( SCIPrepropagateNode(scip, consdata -> stickingatnode) );
+		}
+	}
+
 	/* get the dual variable value */
 	for(int i = 0; i < pricerdata -> constraintssize - 1; ++i)
 	{
@@ -620,7 +632,8 @@ SCIP_DECL_PRICERREDCOST(pricerRedcostEdgePartition)
 #ifdef DEBUG_PRINT
 	printf("%d", *result);
 #endif
-	
+
+
 	if(pricerdata -> addedvar || SCIPgetStatus(subscip) == SCIP_STATUS_OPTIMAL)
 	{
 		*result = SCIP_SUCCESS;
